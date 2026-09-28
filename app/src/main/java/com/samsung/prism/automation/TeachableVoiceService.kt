@@ -1,4 +1,4 @@
-package com.samsung.prism.automation
+﻿package com.samsung.prism.automation
 
 import android.accessibilityservice.AccessibilityService
 import android.graphics.Rect
@@ -10,8 +10,8 @@ class TeachableVoiceService : AccessibilityService() {
 
     companion object {
         private const val TAG = "TeachableVoiceService"
-        
-        // Basic sensitive field check
+
+        // Basic sensitive field check (Person 1)
         fun isSensitive(node: AccessibilityNodeInfo): Boolean {
             if (node.isPassword) return true
             val viewId = node.viewIdResourceName?.lowercase() ?: ""
@@ -24,11 +24,12 @@ class TeachableVoiceService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        Log.e(TAG, "========== TEACHABLE VOICE SERVICE CONNECTED ==========")
 
-        Log.e(
-            TAG,
-            "========== TEACHABLE VOICE SERVICE CONNECTED =========="
-        )
+        // Team: attach replay engine
+        ReplayEngine.attach(this)
+
+        // Person 1: start recording teaching actions
         TeachingRecorder.startRecording()
     }
 
@@ -40,16 +41,11 @@ class TeachableVoiceService : AccessibilityService() {
 
         // Only log meaningful events to avoid flooding logcat
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
-            Log.e(
-                TAG,
-                "Accessibility Event: ${
-                    AccessibilityEvent.eventTypeToString(event.eventType)
-                }"
-            )
+            Log.e(TAG, "Accessibility Event: ${AccessibilityEvent.eventTypeToString(event.eventType)}")
         }
 
         // =========================================================
-        // M2: DETECT USER CLICK
+        // Person 1: DETECT USER CLICK ΓÇö capture SemanticTarget + TeachingAction
         // =========================================================
         if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED) {
 
@@ -63,9 +59,9 @@ class TeachableVoiceService : AccessibilityService() {
 
                     val bounds = Rect()
                     clickedNode.getBoundsInScreen(bounds)
-                    
+
                     val isSensitiveField = isSensitive(clickedNode)
-                    
+
                     val semanticTarget = SemanticTarget(
                         resourceId = clickedNode.viewIdResourceName,
                         normalizedText = TextNormalizer.normalize(clickedNode.text?.toString()),
@@ -77,28 +73,21 @@ class TeachableVoiceService : AccessibilityService() {
                         bounds = bounds,
                         isSensitive = isSensitiveField
                     )
-                    
+
                     Log.e(TAG, "TARGET CAPTURED: $semanticTarget")
-                    
+
                     val action = TeachingAction(
                         type = ActionType.CLICK,
                         target = semanticTarget,
                         timestamp = System.currentTimeMillis()
                     )
-                    
+
                     TeachingRecorder.recordAction(action)
 
-                    Log.e(
-                        TAG,
-                        "=========================================="
-                    )
+                    Log.e(TAG, "==========================================")
 
                 } catch (e: Exception) {
-                    Log.e(
-                        TAG,
-                        "Error reading clicked UI node",
-                        e
-                    )
+                    Log.e(TAG, "Error reading clicked UI node", e)
                 } finally {
                     clickedNode.recycle()
                 }
@@ -106,7 +95,28 @@ class TeachableVoiceService : AccessibilityService() {
         }
 
         // =========================================================
-        // READ CURRENT UI TREE
+        // Team: Process events through ActionInterpreter when teaching is active
+        // (skips VIEW_CLICKED to avoid double-recording with Person 1 above)
+        // =========================================================
+        if (TeachSessionManager.isTeaching() && event.eventType != AccessibilityEvent.TYPE_VIEW_CLICKED) {
+            val eventNodeInfo = event.source
+            if (eventNodeInfo != null) {
+                try {
+                    val eventUiNode = UiTreeReader.readTree(eventNodeInfo)
+                    if (eventUiNode != null) {
+                        val concreteAction = ActionInterpreter.interpret(event, eventUiNode)
+                        if (concreteAction != null) {
+                            TeachSessionManager.recordAction(concreteAction)
+                        }
+                    }
+                } finally {
+                    eventNodeInfo.recycle()
+                }
+            }
+        }
+
+        // =========================================================
+        // Person 1: READ CURRENT UI TREE
         // =========================================================
         val rootNode = rootInActiveWindow
 
@@ -116,9 +126,8 @@ class TeachableVoiceService : AccessibilityService() {
         }
 
         try {
-            // Read tree completely as per requirements
             val uiTree = UiTreeReader.readTree(rootNode)
-            
+
             // Log only on meaningful events so we don't spam logcat
             if (event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
                 Log.e(TAG, "Reading UI Tree...")
@@ -129,21 +138,14 @@ class TeachableVoiceService : AccessibilityService() {
                 }
             }
         } catch (e: Exception) {
-            Log.e(
-                TAG,
-                "Error while reading UI Tree",
-                e
-            )
+            Log.e(TAG, "Error while reading UI Tree", e)
         } finally {
             rootNode.recycle()
         }
     }
 
     override fun onInterrupt() {
-        Log.e(
-            TAG,
-            "========== TEACHABLE VOICE SERVICE INTERRUPTED =========="
-        )
+        Log.e(TAG, "========== TEACHABLE VOICE SERVICE INTERRUPTED ==========")
         TeachingRecorder.stopRecording()
     }
 }

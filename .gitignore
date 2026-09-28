@@ -5,6 +5,21 @@ build/
 *.iml
 .idea/
 .DS_Store
-
 .vscode/
 logcat.txt
+
+# Backend ignores
+.env
+__pycache__/
+*.pyc
+.venv/
+credentials/
+service-account.json
+
+# Backend ignores
+.env
+__pycache__/
+*.pyc
+.venv/
+credentials/
+service-account.json
