@@ -5,3 +5,11 @@ build/
 *.iml
 .idea/
 .DS_Store
+
+# Backend ignores
+.env
+__pycache__/
+*.pyc
+.venv/
+credentials/
+service-account.json
