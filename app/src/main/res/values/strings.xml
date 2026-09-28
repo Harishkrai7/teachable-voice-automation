@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Teachable Voice Automation</string>
+    <string name="accessibility_service_description">Samsung PRISM Teachable Voice Automation Service for reading UI trees and automating actions.</string>
+</resources>
