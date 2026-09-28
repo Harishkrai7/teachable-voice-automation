@@ -1,43 +1,149 @@
 package com.samsung.prism.automation
 
 import android.accessibilityservice.AccessibilityService
+import android.graphics.Rect
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 
 class TeachableVoiceService : AccessibilityService() {
 
     companion object {
         private const val TAG = "TeachableVoiceService"
+        
+        // Basic sensitive field check
+        fun isSensitive(node: AccessibilityNodeInfo): Boolean {
+            if (node.isPassword) return true
+            val viewId = node.viewIdResourceName?.lowercase() ?: ""
+            val contentDesc = node.contentDescription?.toString()?.lowercase() ?: ""
+            if (viewId.contains("password") || viewId.contains("pin") || viewId.contains("cvv")) return true
+            if (contentDesc.contains("password") || contentDesc.contains("pin") || contentDesc.contains("cvv")) return true
+            return false
+        }
     }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        Log.d(TAG, "Teachable Voice Automation Service Connected.")
+
+        Log.e(
+            TAG,
+            "========== TEACHABLE VOICE SERVICE CONNECTED =========="
+        )
+        TeachingRecorder.startRecording()
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event == null) return
+        if (event == null) {
+            Log.e(TAG, "Received NULL accessibility event")
+            return
+        }
 
-        Log.d(TAG, "Received Accessibility Event: ${AccessibilityEvent.eventTypeToString(event.eventType)}")
+        // Only log meaningful events to avoid flooding logcat
+        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
+            Log.e(
+                TAG,
+                "Accessibility Event: ${
+                    AccessibilityEvent.eventTypeToString(event.eventType)
+                }"
+            )
+        }
 
-        // For this milestone, we only read the UI tree without taking any automation actions.
-        val rootNode = rootInActiveWindow
-        if (rootNode != null) {
-            Log.d(TAG, "Reading UI Tree...")
-            val uiTree = UiTreeReader.readTree(rootNode)
-            if (uiTree != null) {
-                // Log the detected UI nodes for debugging
-                UiTreeReader.logTree(uiTree)
+        // =========================================================
+        // M2: DETECT USER CLICK
+        // =========================================================
+        if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED) {
+
+            val clickedNode: AccessibilityNodeInfo? = event.source
+
+            if (clickedNode == null) {
+                Log.e(TAG, "CLICK detected, but event.source is NULL")
             } else {
-                Log.w(TAG, "Failed to read UI Tree (returned null)")
+                try {
+                    Log.e(TAG, "========== USER CLICK DETECTED ==========")
+
+                    val bounds = Rect()
+                    clickedNode.getBoundsInScreen(bounds)
+                    
+                    val isSensitiveField = isSensitive(clickedNode)
+                    
+                    val semanticTarget = SemanticTarget(
+                        resourceId = clickedNode.viewIdResourceName,
+                        normalizedText = TextNormalizer.normalize(clickedNode.text?.toString()),
+                        contentDescription = clickedNode.contentDescription?.toString(),
+                        className = clickedNode.className?.toString(),
+                        packageName = clickedNode.packageName?.toString(),
+                        clickable = clickedNode.isClickable,
+                        enabled = clickedNode.isEnabled,
+                        bounds = bounds,
+                        isSensitive = isSensitiveField
+                    )
+                    
+                    Log.e(TAG, "TARGET CAPTURED: $semanticTarget")
+                    
+                    val action = TeachingAction(
+                        type = ActionType.CLICK,
+                        target = semanticTarget,
+                        timestamp = System.currentTimeMillis()
+                    )
+                    
+                    TeachingRecorder.recordAction(action)
+
+                    Log.e(
+                        TAG,
+                        "=========================================="
+                    )
+
+                } catch (e: Exception) {
+                    Log.e(
+                        TAG,
+                        "Error reading clicked UI node",
+                        e
+                    )
+                } finally {
+                    clickedNode.recycle()
+                }
             }
-            rootNode.recycle() // Clean up root node
-        } else {
-            Log.d(TAG, "rootInActiveWindow is null")
+        }
+
+        // =========================================================
+        // READ CURRENT UI TREE
+        // =========================================================
+        val rootNode = rootInActiveWindow
+
+        if (rootNode == null) {
+            Log.e(TAG, "rootInActiveWindow is NULL")
+            return
+        }
+
+        try {
+            // Read tree completely as per requirements
+            val uiTree = UiTreeReader.readTree(rootNode)
+            
+            // Log only on meaningful events so we don't spam logcat
+            if (event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
+                Log.e(TAG, "Reading UI Tree...")
+                if (uiTree != null) {
+                    Log.e(TAG, "UI Tree successfully read")
+                } else {
+                    Log.e(TAG, "UI Tree returned NULL")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(
+                TAG,
+                "Error while reading UI Tree",
+                e
+            )
+        } finally {
+            rootNode.recycle()
         }
     }
 
     override fun onInterrupt() {
-        Log.d(TAG, "Service Interrupted.")
+        Log.e(
+            TAG,
+            "========== TEACHABLE VOICE SERVICE INTERRUPTED =========="
+        )
+        TeachingRecorder.stopRecording()
     }
 }

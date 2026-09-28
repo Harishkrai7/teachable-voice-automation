@@ -5,3 +5,6 @@ build/
 *.iml
 .idea/
 .DS_Store
+
+.vscode/
+logcat.txt
