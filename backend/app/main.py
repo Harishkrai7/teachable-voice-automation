@@ -4,7 +4,7 @@ import time
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
-from app.models.schemas import IntentExtractRequest, IntentExtractResponse, ErrorResponse, ErrorDetail, TeachRequest, ReplayRequest
+from app.models.schemas import IntentExtractRequest, IntentExtractResponse, ErrorResponse, ErrorDetail, TeachRequest, ReplayRequest, ProcessResponse
 from app.services.intent_service import process_intent_extraction
 from app.utils.validation import validation_exception_handler
 from typing import Union
@@ -73,12 +73,13 @@ async def extract_intent(request: IntentExtractRequest):
             ).model_dump()
         )
 
-@app.post("/v1/process")
+from app.services.cloud2_service import generalize_flow, replay_flow
+
+@app.post("/v1/process", response_model=ProcessResponse)
 async def process(request: Union[TeachRequest, ReplayRequest]):
     """
     Accepts the TEACH and REPLAY contracts.
-    Currently delegates to intent/slot extraction for Cloud 1 representation,
-    providing a clean structured response ready for Cloud 2 to implement matching logic.
+    Delegates to intent/slot extraction (Cloud 1), then runs Cloud 2 matching/generalization.
     """
     if not request.utterance.strip():
         return JSONResponse(
@@ -89,25 +90,48 @@ async def process(request: Union[TeachRequest, ReplayRequest]):
             ).model_dump()
         )
 
-    # Cloud 1 responsibilities: extract intent and slots based on utterance.
-    # Cloud 2 will later take this extracted structure and process learning/execution logic.
     try:
+        current_app = request.app if isinstance(request, TeachRequest) else request.currentApp
         extracted = process_intent_extraction(IntentExtractRequest(
             utterance=request.utterance,
-            currentApp=request.app if isinstance(request, TeachRequest) else request.currentApp
+            currentApp=current_app
         ))
         
-        return {
-            "success": True,
-            "mode": request.mode,
-            "cloud1_output": extracted.model_dump(),
-            "message": "Processed by Cloud 1. Hand-off to Cloud 2 available."
-        }
+        if extracted.intent == "unknown_intent":
+            return ProcessResponse(
+                success=True,
+                type="NOT_LEARNED",
+                message="Intent is unknown or unsupported."
+            )
+
+        if isinstance(request, TeachRequest):
+            return generalize_flow(extracted.intent, current_app, extracted.slots, request.actions)
+        else:
+            return replay_flow(extracted.intent, current_app, extracted.slots)
+            
     except Exception as e:
+        logger.error(f"Error in process: {e}")
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=ErrorResponse(
                 success=False,
-                error=ErrorDetail(code="MODEL_ERROR", message="Failed to process utterance.")
+                error=ErrorDetail(code="INTERNAL_ERROR", message="Failed to process utterance.")
+            ).model_dump()
+        )
+
+from app.models.schemas import FeedbackRequest, FeedbackResponse
+from app.services.recovery_service import process_feedback
+
+@app.post("/v1/feedback", response_model=FeedbackResponse)
+async def feedback(request: FeedbackRequest):
+    try:
+        return process_feedback(request)
+    except Exception as e:
+        logger.error(f"Error processing feedback: {e}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=ErrorResponse(
+                success=False,
+                error=ErrorDetail(code="INTERNAL_ERROR", message="Failed to process feedback.")
             ).model_dump()
         )

@@ -1,110 +1,121 @@
 # API Contract
 
-## Error Contract (Consistent across all endpoints)
-If a request fails, you will receive an HTTP error code (e.g., 400, 422, 500) and the following structured JSON:
-```json
-{
-  "success": false,
-  "error": {
-    "code": "INVALID_REQUEST",
-    "message": "Validation failed..."
-  }
-}
-```
+## Cloud 1 -> Cloud 2 API
 
-Possible `code` values:
-- `INVALID_REQUEST` (Malformed JSON or missing fields)
-- `EMPTY_UTTERANCE` (Utterance is empty or whitespace)
-- `UNKNOWN_INTENT` (Used when intent is unsupported)
-- `MODEL_ERROR` (Gemini failed to generate response)
-- `INTERNAL_ERROR` (Server error)
+### POST `/v1/process`
+Unified endpoint for Cloud 2 reasoning (TEACH and REPLAY).
 
----
-
-## 1. Extract Intent
-**Endpoint:** `POST /v1/intent/extract`
-
-**Request Body:**
-```json
-{
-  "utterance": "Order a Margherita pizza from Dominos",
-  "currentApp": "Zomato"
-}
-```
-
-**Success Response (200 OK):**
-```json
-{
-  "intent": "order_food",
-  "slots": {
-    "restaurant": "Dominos",
-    "item": "Margherita Pizza",
-    "quantity": 1,
-    "address": null
-  }
-}
-```
-
----
-
-## 2. Process (TEACH Mode)
-**Endpoint:** `POST /v1/process`
-
-**Request Body:**
+#### Teach Request
 ```json
 {
   "mode": "TEACH",
   "utterance": "Order a Margherita pizza from Dominos on Zomato",
   "actions": [
-    {
-      "action": "SEARCH",
-      "target": "Dominos"
-    },
-    {
-      "action": "CLICK",
-      "target": "Dominos Restaurant"
-    },
-    {
-      "action": "SEARCH",
-      "target": "Margherita Pizza"
-    },
-    {
-      "action": "SET_QUANTITY",
-      "value": "1"
-    }
+    {"action": "SEARCH", "target": "Dominos"},
+    {"action": "CLICK", "target": "Dominos Restaurant"},
+    {"action": "SEARCH", "target": "Margherita Pizza"},
+    {"action": "SET_QUANTITY", "value": "1"},
+    {"action": "ADD_TO_CART"}
   ],
   "app": "Zomato"
 }
 ```
 
----
-
-## 3. Process (REPLAY Mode)
-**Endpoint:** `POST /v1/process`
-
-**Request Body:**
-```json
-{
-  "mode": "REPLAY",
-  "utterance": "Get me a margherita from dominos",
-  "currentApp": "Zomato"
-}
-```
-
-**Success Response (200 OK) [Temporary placeholder until Cloud 2 is built]:**
+#### Teach Response (Success)
 ```json
 {
   "success": true,
-  "mode": "REPLAY",
-  "cloud1_output": {
+  "mode": "TEACH",
+  "flow": {
+    "flowId": "a1b2c3d4",
     "intent": "order_food",
     "slots": {
       "restaurant": "Dominos",
       "item": "Margherita Pizza",
-      "quantity": 1,
-      "address": null
-    }
+      "quantity": 1
+    },
+    "steps": [
+      {"action": "SEARCH", "target": "{{restaurant}}"},
+      {"action": "CLICK", "target": "Dominos Restaurant"},
+      {"action": "SEARCH", "target": "{{item}}"},
+      {"action": "SET_QUANTITY", "value": "{{quantity}}"},
+      {"action": "ADD_TO_CART"}
+    ],
+    "stopBefore": ["PAYMENT", "OTP", "PASSWORD", "PIN"]
+  }
+}
+```
+
+#### Replay Request
+```json
+{
+  "mode": "REPLAY",
+  "utterance": "Get me a Margherita from Pizza Hut",
+  "currentApp": "Zomato"
+}
+```
+
+#### Replay Response (Success)
+```json
+{
+  "success": true,
+  "mode": "REPLAY",
+  "flowId": "a1b2c3d4",
+  "intent": "order_food",
+  "slots": {
+    "restaurant": "Pizza Hut",
+    "item": "Margherita",
+    "quantity": null
   },
-  "message": "Processed by Cloud 1. Hand-off to Cloud 2 available."
+  "actions": [
+    {"action": "SEARCH", "target": "Pizza Hut"},
+    {"action": "CLICK", "target": "Dominos Restaurant"},
+    {"action": "SEARCH", "target": "Margherita"},
+    {"action": "SET_QUANTITY", "value": null},
+    {"action": "ADD_TO_CART"}
+  ]
+}
+```
+
+#### Other Responses
+**Clarification (`ASK_USER`):**
+```json
+{
+  "success": true,
+  "type": "ASK_USER",
+  "question": "What quantity would you like?"
+}
+```
+
+**Not Learned (`NOT_LEARNED`):**
+```json
+{
+  "success": true,
+  "type": "NOT_LEARNED",
+  "message": "I have not learned a flow for this task yet."
+}
+```
+
+**Safety Boundary (`STOP`):**
+```json
+{
+  "success": true,
+  "type": "STOP",
+  "reason": "SENSITIVE_ACTION"
+}
+```
+
+### POST `/v1/feedback` (Future Contract)
+Android will send structured feedback when a Replay execution fails physically.
+```json
+{
+  "flowId": "food_order_001",
+  "actionIndex": 2,
+  "failedAction": {
+    "action": "SELECT",
+    "target": "Margherita Pizza"
+  },
+  "reason": "NODE_NOT_FOUND",
+  "currentApp": "com.example.app"
 }
 ```

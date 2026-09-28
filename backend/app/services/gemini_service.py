@@ -22,7 +22,7 @@ def get_intent_and_slots(utterance: str, current_app: str) -> IntentExtractRespo
     
     # Use Structured Output with GenAI SDK
     response = client.models.generate_content(
-        model='gemini-2.5-flash',
+        model='gemini-3.8-flash',
         contents=user_prompt,
         config=types.GenerateContentConfig(
             system_instruction=system_prompt,

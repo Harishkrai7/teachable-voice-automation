@@ -13,6 +13,7 @@ class TeachableVoiceService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         Log.d(TAG, "Teachable Voice Automation Service Connected.")
+        ReplayEngine.attach(this)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -20,20 +21,25 @@ class TeachableVoiceService : AccessibilityService() {
 
         Log.d(TAG, "Received Accessibility Event: ${AccessibilityEvent.eventTypeToString(event.eventType)}")
 
-        // For this milestone, we only read the UI tree without taking any automation actions.
-        val rootNode = rootInActiveWindow
-        if (rootNode != null) {
-            Log.d(TAG, "Reading UI Tree...")
-            val uiTree = UiTreeReader.readTree(rootNode)
-            if (uiTree != null) {
-                // Log the detected UI nodes for debugging
-                UiTreeReader.logTree(uiTree)
-            } else {
-                Log.w(TAG, "Failed to read UI Tree (returned null)")
+        // For this milestone, we only process actions when teaching is active
+        if (TeachSessionManager.isTeaching()) {
+            val rootNode = rootInActiveWindow
+            if (rootNode != null) {
+                // To avoid parsing the whole tree if not needed, we can just look at the event node.
+                // But since our ActionInterpreter expects a UiNode context, we will read the event source.
+                val eventNodeInfo = event.source
+                if (eventNodeInfo != null) {
+                    val eventUiNode = UiTreeReader.readTree(eventNodeInfo)
+                    if (eventUiNode != null) {
+                        val concreteAction = ActionInterpreter.interpret(event, eventUiNode)
+                        if (concreteAction != null) {
+                            TeachSessionManager.recordAction(concreteAction)
+                        }
+                    }
+                    eventNodeInfo.recycle()
+                }
+                rootNode.recycle() // Clean up root node
             }
-            rootNode.recycle() // Clean up root node
-        } else {
-            Log.d(TAG, "rootInActiveWindow is null")
         }
     }
 

@@ -38,3 +38,37 @@ class ErrorDetail(BaseModel):
 class ErrorResponse(BaseModel):
     success: bool = False
     error: ErrorDetail
+
+class Flow(BaseModel):
+    flowId: str
+    intent: str
+    app: str
+    slots: Dict[str, Optional[Any]]
+    steps: List[Action]
+    stopBefore: List[str]
+
+class ProcessResponse(BaseModel):
+    success: bool
+    type: Optional[str] = None
+    mode: Optional[str] = None
+    flow: Optional[Flow] = None
+    flowId: Optional[str] = None
+    intent: Optional[str] = None
+    slots: Optional[Dict[str, Optional[Any]]] = None
+    actions: Optional[List[Action]] = None
+    question: Optional[str] = None
+    message: Optional[str] = None
+    reason: Optional[str] = None
+
+class FeedbackRequest(BaseModel):
+    flowId: str
+    actionIndex: int
+    failedAction: Action
+    reason: str
+    currentApp: str
+
+class FeedbackResponse(BaseModel):
+    status: str
+    flowId: str
+    actionIndex: int
+    reason: str
