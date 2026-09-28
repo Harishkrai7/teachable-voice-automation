@@ -1,0 +1,96 @@
+openapi: 3.0.0
+info:
+  title: Voice Automation Backend API
+  description: Backend API for Samsung PRISM 2026-27 GenAI Hackathon Theme 3
+  version: 1.0.0
+paths:
+  /v1/teach:
+    post:
+      summary: Teach a new flow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeachRequest'
+      responses:
+        '200':
+          description: Successful teaching response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeachResponse'
+  /v1/replay/plan:
+    post:
+      summary: Get an execution plan for a replay utterance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplayPlanRequest'
+      responses:
+        '200':
+          description: Replay plan decision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplayPlanResponse'
+components:
+  schemas:
+    TeachRequest:
+      type: object
+      properties:
+        mode:
+          type: string
+          example: "TEACH"
+        requestId:
+          type: string
+        appPackage:
+          type: string
+        utterance:
+          type: string
+        demonstration:
+          type: array
+          items:
+            type: object
+      required: [mode, requestId, appPackage, utterance, demonstration]
+    TeachResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        flowId:
+          type: string
+        intent:
+          type: string
+        slots:
+          type: object
+        actions:
+          type: array
+          items:
+            type: object
+    ReplayPlanRequest:
+      type: object
+      properties:
+        requestId:
+          type: string
+        appPackage:
+          type: string
+        utterance:
+          type: string
+      required: [requestId, appPackage, utterance]
+    ReplayPlanResponse:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum: [EXECUTE_PLAN, ASK_USER, UNKNOWN_INTENT, STOP]
+        flowId:
+          type: string
+        actions:
+          type: array
+          items:
+            type: object
+        message:
+          type: string
