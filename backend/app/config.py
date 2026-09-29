@@ -1,12 +1,11 @@
 import os
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
-    google_cloud_project: str = os.getenv("GOOGLE_CLOUD_PROJECT", "")
-    google_cloud_region: str = os.getenv("GOOGLE_CLOUD_REGION", "")
+    google_cloud_project: str = os.getenv("GOOGLE_CLOUD_PROJECT", "teachable-voice-automation")
+    google_cloud_region: str = os.getenv("GOOGLE_CLOUD_REGION", "global")
+    vertex_gemini_model: str = os.getenv("VERTEX_GEMINI_MODEL", "gemini-1.5-flash-002")
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()

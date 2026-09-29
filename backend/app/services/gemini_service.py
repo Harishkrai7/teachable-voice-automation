@@ -4,13 +4,13 @@ from google.genai import types
 from app.config import settings
 from app.models.schemas import IntentExtractResponse
 
-# Initialize GenAI client
-# The SDK automatically looks for GEMINI_API_KEY environment variable.
-if settings.gemini_api_key:
-    client = genai.Client(api_key=settings.gemini_api_key)
-else:
-    # Let it default or fail if key is missing, depending on environment setup.
-    client = genai.Client()
+# Initialize GenAI client using Vertex AI and Application Default Credentials
+# This runs in Cloud Run as the attached service account.
+client = genai.Client(
+    vertexai=True,
+    project=settings.google_cloud_project,
+    location=settings.google_cloud_region,
+)
 
 def get_intent_and_slots(utterance: str, current_app: str) -> IntentExtractResponse:
     prompt_file = os.path.join(os.path.dirname(__file__), "../prompts/intent_slot_prompt.txt")
@@ -20,9 +20,9 @@ def get_intent_and_slots(utterance: str, current_app: str) -> IntentExtractRespo
     # We pass currentApp just in case the model needs context, but primarily rely on utterance.
     user_prompt = f"User Utterance: {utterance}\nCurrent App: {current_app}"
     
-    # Use Structured Output with GenAI SDK
+    # Use Structured Output with GenAI SDK on Vertex AI
     response = client.models.generate_content(
-        model='gemini-3.8-flash',
+        model=settings.vertex_gemini_model,
         contents=user_prompt,
         config=types.GenerateContentConfig(
             system_instruction=system_prompt,
