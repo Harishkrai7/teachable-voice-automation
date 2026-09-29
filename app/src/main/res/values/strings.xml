@@ -1,4 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Teachable Voice Automation</string>
-    <string name="accessibility_service_description">Samsung PRISM Teachable Voice Automation Service for reading UI trees and automating actions.</string>
+    <string name="app_name">VoiceFlow</string>
+    <string name="a11y_description">VoiceFlow watches the taps you make while teaching a task and replays them when you ask by voice. It never records passwords, OTPs, PINs or payment details and stops before payment or login screens.</string>
 </resources>

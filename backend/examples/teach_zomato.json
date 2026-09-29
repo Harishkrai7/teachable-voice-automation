@@ -1,0 +1,22 @@
+{
+  "mode": "TEACH",
+  "contractVersion": "1.0",
+  "utterance": "Order a Margherita pizza from Dominos on Zomato",
+  "app": "Zomato",
+  "actions": [
+    {"action": "CLICK", "target": {"resourceId": "com.application.zomato:id/search_bar", "text": "Search for restaurant, item or more", "className": "android.widget.TextView", "clickable": true, "screen": "Home"}},
+    {"action": "TYPE", "value": "D", "target": {"resourceId": "com.application.zomato:id/search_edit", "className": "android.widget.EditText", "screen": "Search"}},
+    {"action": "TYPE", "value": "Domi", "target": {"resourceId": "com.application.zomato:id/search_edit", "className": "android.widget.EditText", "screen": "Search"}},
+    {"action": "SEARCH", "value": "Dominos", "target": {"resourceId": "com.application.zomato:id/search_edit", "className": "android.widget.EditText", "screen": "Search"}},
+    {"action": "SELECT", "target": {"text": "Domino's Pizza", "className": "android.widget.TextView", "clickable": true, "parentText": "Pizza, Fast Food", "screen": "Search"}},
+    {"action": "CLICK", "target": {"text": "Offers", "clickable": true, "screen": "Restaurant"}},
+    {"action": "BACK"},
+    {"action": "SEARCH", "value": "Margherita", "target": {"resourceId": "com.application.zomato:id/menu_search", "className": "android.widget.EditText", "screen": "Restaurant"}},
+    {"action": "SELECT", "target": {"text": "Margherita", "className": "android.widget.TextView", "clickable": true, "screen": "Restaurant"}},
+    {"action": "ADD_TO_CART", "target": {"resourceId": "com.application.zomato:id/add_button", "text": "ADD", "clickable": true, "screen": "Restaurant"}},
+    {"action": "SET_QUANTITY", "value": "1", "target": {"resourceId": "com.application.zomato:id/stepper_count", "screen": "Restaurant"}},
+    {"action": "OPEN_CART", "target": {"text": "View Cart", "clickable": true, "screen": "Restaurant"}},
+    {"action": "SELECT_ADDRESS", "target": {"text": "Home", "contentDescription": "Deliver to Home", "clickable": true, "screen": "Cart"}},
+    {"action": "CLICK", "target": {"text": "Proceed to Pay", "clickable": true, "screen": "Cart"}}
+  ]
+}
