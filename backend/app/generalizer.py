@@ -64,7 +64,10 @@ def _slot_for(value: str | None, slots: dict[str, Any], action: ActionType) -> s
             if action in (ActionType.SET_QUANTITY, ActionType.TYPE) and nv == ns:
                 return name
             continue
-        if len(ns) < 2 or not similar(value, str(sv)):
+        if len(ns) < 1:
+            continue
+        # Check both similar() and direct substring containment
+        if not similar(value, str(sv)) and ns not in nv and nv not in ns:
             continue
         score = 2.0 if nv == ns else min(len(nv), len(ns)) / max(len(nv), len(ns))
         if score > best_score:

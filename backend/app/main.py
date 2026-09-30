@@ -91,12 +91,6 @@ def teach(req: TeachRequest, store: JsonFlowStore = Depends(get_store), ex: Extr
     if intent == "unknown_intent":
         intent = "custom_" + "_".join(sorted(tokens(req.utterance), key=req.utterance.lower().find)[:3])
 
-    referenced = {r for s in steps for r in s.slotRefs}
-    for name, value in extraction.slots.items():
-        if name not in referenced and name != "quantity":
-            warnings.append(f"Slot {name}={value!r} was spoken but not seen in the demonstration; "
-                            "it can't be changed at replay time.")
-
     flow = store.save_new(Flow(
         flowId="pending", intent=intent, app=req.app or extraction.app,
         utterances=[req.utterance], slots=slots, steps=steps,

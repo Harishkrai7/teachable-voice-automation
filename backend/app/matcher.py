@@ -7,7 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .schemas import Extraction, Flow, Option
-from .text import jaccard, norm, tokens
+from .text import jaccard, norm, similar, tokens
 
 SIMILARITY_THRESHOLD = 0.5  # for custom (non-controlled) intents matched on wording alone
 TIE_MARGIN = 0.15
@@ -52,7 +52,7 @@ def match(ex: Extraction, utterance: str, current_app: str | None, flows: list[F
 
     wanted_app = ex.app or None
     if wanted_app:
-        on_app = [f for f in candidates if norm(f.app) == norm(wanted_app)]
+        on_app = [f for f in candidates if similar(f.app, wanted_app)]
         if not on_app:
             known = sorted({f.app or "?" for f in candidates})
             return MatchResult(
@@ -60,7 +60,7 @@ def match(ex: Extraction, utterance: str, current_app: str | None, flows: list[F
             )
         candidates = on_app
     elif current_app:
-        on_app = [f for f in candidates if norm(f.app) == norm(current_app)]
+        on_app = [f for f in candidates if similar(f.app, current_app)]
         candidates = on_app or candidates
 
     if len(candidates) == 1:

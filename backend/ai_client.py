@@ -236,12 +236,12 @@ CONCRETE ANDROID DEMONSTRATION STEPS:
 {demo_text}
 
 RULES:
-1. Only replace values that match a known slot. Do NOT invent new placeholders.
+1. Replace values (or parts of values) with {{{{slot_name}}}} placeholders if they match or partially match a known slot. For example, if the slot is "Pizza Hut" and the targetText is "Pizza Hut 30 mins", change it to "{{{{restaurant}}}} 30 mins".
 2. Keep actions that never change (like "OPEN_CART", "ADD_TO_CART") marked as isInvariant=true.
 3. Mark any step that could involve payment/OTP/login as stopBefore=true.
 4. Preserve the exact action names from the demonstration (SEARCH, CLICK, SET_QUANTITY, etc.).
 5. Never invent steps that were not in the original demonstration.
-6. targetText and value fields may contain {{{{slot_name}}}} if the slot value appeared there.
+6. targetText and value fields MUST contain {{{{slot_name}}}} if the slot value appeared anywhere within them. Do not require an exact match.
 
 Available slot names: {slot_names}
 
