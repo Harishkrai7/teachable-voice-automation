@@ -10,6 +10,7 @@ client = genai.Client(
     vertexai=True,
     project=settings.google_cloud_project,
     location=settings.google_cloud_region,
+    http_options=types.HttpOptions(api_version="v1"),
 )
 
 def get_intent_and_slots(utterance: str, current_app: str) -> IntentExtractResponse:
