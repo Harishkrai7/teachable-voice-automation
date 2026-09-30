@@ -25,12 +25,14 @@ ALREADY_DONE = {
 
 
 def _label(t: Target) -> str:
-    return t.text or t.contentDescription or t.resourceId or "?"
+    return t.text or t.contentDescription or t.parentText or t.resourceId or "?"
 
 
 def _expected(step: Step) -> str | None:
     t = step.target
-    return (t.text or t.contentDescription) if t else step.value
+    if t:
+        return t.text or t.contentDescription or t.parentText
+    return step.value
 
 
 def decide(req: RecoverRequest) -> dict:
@@ -49,23 +51,26 @@ def decide(req: RecoverRequest) -> dict:
     usable = [n for n in screen.nodes if n.enabled is not False]
 
     # 2. Expected target visible under slightly different evidence (renamed id, changed label).
+    hits = []
     if expected:
-        hits = [n for n in usable if similar(n.text, expected) or similar(n.contentDescription, expected)]
-        if step.target and step.target.resourceId:
-            hits += [n for n in usable if n.resourceId == step.target.resourceId and n not in hits]
+        hits = [n for n in usable if similar(n.text, expected) or similar(n.contentDescription, expected) or similar(n.parentText, expected)]
+    if step.target and step.target.resourceId:
+        hits += [n for n in usable if n.resourceId == step.target.resourceId and n not in hits]
+    
+    if hits:
         clickable = [n for n in hits if n.clickable is not False]
         hits = clickable or hits
         if len(hits) == 1:
             return dict(
                 decision=RecoveryDecision.RETRY_WITH_TARGET, confidence=0.8,
                 action=step.model_copy(update={"target": hits[0]}),
-                reason=f"Found {_label(hits[0])!r} matching {expected!r}; retry with this target.",
+                reason=f"Found {_label(hits[0])!r} matching {expected or step.target.resourceId!r}; retry with this target.",
             )
         if len(hits) > 1:
             labels = list(dict.fromkeys(_label(h) for h in hits))[:5]
             return dict(
                 decision=RecoveryDecision.ASK_USER, confidence=0.5, options=labels,
-                question=f"At {human_step} I see several matches for {expected!r}: {', '.join(labels)}. Which one?",
+                question=f"At {human_step} I see several matches for {expected or step.target.resourceId!r}: {', '.join(labels)}. Which one?",
                 reason="Ambiguous target on screen.",
             )
 
