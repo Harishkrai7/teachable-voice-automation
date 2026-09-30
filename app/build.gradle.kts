@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.samsung.prism.automation"
+    namespace = "com.prism.voiceflow"
     compileSdk = 34
 
   defaultConfig {
