@@ -42,7 +42,7 @@ class MainActivity : Activity() {
         urlField = EditText(this).apply {
             hint = "Server URL, e.g. https://prism-xxxx.a.run.app"
             inputType = InputType.TYPE_TEXT_VARIATION_URI
-            setText(prefs.getString("url", ""))
+            setText(prefs.getString("url", "https://teachable-voice-backend-52478641978.asia-south1.run.app"))
         }.also { col.addView(it) }
         keyField = EditText(this).apply {
             hint = "API key (optional)"
