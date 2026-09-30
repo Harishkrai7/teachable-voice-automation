@@ -39,7 +39,7 @@ class Target(BaseModel):
     isPassword: bool = False
     bounds: list[float] | None = Field(default=None, description="Relative [l, t, r, b] in 0..1")
     parentText: str | None = None
-    package: str | None = None
+    package: str | None = Field(default=None, alias="packageName")
     screen: str | None = None
     screenFingerprint: str | None = None
 
@@ -60,6 +60,7 @@ class Step(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
+    index: int = 0
     action: ActionType = Field(alias="type")
     value: str | None = None
     target: Target | None = None
@@ -105,6 +106,7 @@ class ReplayRequest(BaseModel):
     currentApp: str | None = None
     uiSummary: ScreenSummary | None = None
     flowId: str | None = Field(default=None, description="Set after the user picks an ASK_USER option")
+    slotAnswers: dict[str, Any] = Field(default_factory=dict)
 
 
 class RecoverRequest(BaseModel):
@@ -137,12 +139,14 @@ class Extraction(BaseModel):
 
 
 class TeachResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     status: Literal["LEARNED", "REJECTED"]
     requestId: str
     flow: Flow | None = None
     droppedActions: int = 0
     warnings: list[str] = Field(default_factory=list)
-    reason: str | None = None
+    reason: str | None = Field(default=None, alias="message")
 
 
 class ReplayStatus(str, Enum):
@@ -158,6 +162,8 @@ class Option(BaseModel):
 
 
 class ReplayResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     status: ReplayStatus
     requestId: str
     intent: str | None = None
@@ -165,12 +171,13 @@ class ReplayResponse(BaseModel):
     defaultedSlots: list[str] = Field(default_factory=list)
     flowId: str | None = None
     app: str | None = None
-    actions: list[Step] = Field(default_factory=list)
+    actions: list[Step] = Field(default_factory=list, alias="steps")
     stopBefore: list[str] = Field(default_factory=list)
     question: str | None = None
     options: list[Option] = Field(default_factory=list)
+    missingSlot: str | None = None
     offerTeach: bool = False
-    reason: str | None = None
+    reason: str | None = Field(default=None, alias="message")
 
 
 class RecoveryDecision(str, Enum):

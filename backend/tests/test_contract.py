@@ -60,7 +60,7 @@ def test_exact_replay(client, zomato):
     r = client.post("/v1/replay", json={"utterance": "Order a Margherita pizza from Dominos on Zomato"}).json()
     assert r["status"] == "PLAN"
     assert r["flowId"] == "order_food_001"
-    assert by_action(r["actions"], "SEARCH")[1]["value"] == "Margherita pizza"
+    assert by_action(r["steps"], "SEARCH")[1]["value"] == "Margherita pizza"
     assert "PAYMENT" in r["stopBefore"]
 
 
@@ -76,7 +76,7 @@ def test_changed_slots(client, zomato):
     r = client.post("/v1/replay", json={
         "utterance": "Order 2 Farmhouse pizzas from Dominos and deliver to office", "currentApp": "Zomato"}).json()
     assert r["status"] == "PLAN", r
-    acts = r["actions"]
+    acts = r["steps"]
     assert by_action(acts, "SEARCH")[1]["value"] == "Farmhouse pizzas"
     assert by_action(acts, "SELECT")[1]["target"]["text"] == "Farmhouse pizzas"
     assert by_action(acts, "SET_QUANTITY")[0]["value"] == "2"
@@ -87,7 +87,7 @@ def test_unspoken_address_defaults_to_taught_tap(client, zomato):
     # address was never spoken while teaching; the address the user tapped becomes the default
     assert zomato["flow"]["slots"]["address"] == "Home"
     r = client.post("/v1/replay", json={"utterance": "Order a Margherita pizza from Dominos on Zomato"}).json()
-    assert by_action(r["actions"], "SELECT_ADDRESS")[0]["value"] == "Home"
+    assert by_action(r["steps"], "SELECT_ADDRESS")[0]["value"] == "Home"
     assert "address" in r["defaultedSlots"]
 
 
@@ -98,10 +98,10 @@ def test_second_app_and_cross_app(client, zomato):
     assert t["droppedActions"] == 1  # double scroll collapsed
     r = client.post("/v1/replay", json={"utterance": "Buy 3 AA batteries on Amazon"}).json()
     assert r["status"] == "PLAN" and r["app"] == "Amazon"
-    assert by_action(r["actions"], "SEARCH")[0]["value"] == "AA batteries"
-    assert by_action(r["actions"], "SET_QUANTITY")[0]["value"] == "3"
+    assert by_action(r["steps"], "SEARCH")[0]["value"] == "AA batteries"
+    assert by_action(r["steps"], "SET_QUANTITY")[0]["value"] == "3"
     r = client.post("/v1/replay", json={"utterance": "Order a burger from McDonalds on Swiggy"}).json()
-    assert r["status"] == "NOT_LEARNED" and "Swiggy" in r["reason"]
+    assert r["status"] == "NOT_LEARNED" and "Swiggy" in r["message"]
 
 
 # T11 - payment / auth boundary during replay

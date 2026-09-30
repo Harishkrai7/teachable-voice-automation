@@ -160,14 +160,14 @@ def replay(req: ReplayRequest, store: JsonFlowStore = Depends(get_store), ex: Ex
                      f"Should I use the taught {k} ({flow.slots.get(k)!r}), or will you show me where to change it?",
         ))
 
-    resolved = {**flow.slots, **extraction.slots}
-    defaulted = [k for k in flow.slots if k not in extraction.slots and k in referenced]
+    resolved = {**flow.slots, **extraction.slots, **req.slotAnswers}
+    defaulted = [k for k in flow.slots if k not in extraction.slots and k not in req.slotAnswers and k in referenced]
     actions, missing = generalizer.resolve(flow.steps, resolved)
     if missing:
         k = missing[0]
         return done(ReplayResponse(
             status=ReplayStatus.ASK_USER, requestId=rid, intent=flow.intent, flowId=flow.flowId, app=flow.app,
-            slots=resolved, question=f"Which {k} should I use?", reason=f"Missing required slot: {k}",
+            slots=resolved, question=f"Which {k} should I use?", reason=f"Missing required slot: {k}", missingSlot=k
         ))
 
     if req.utterance not in flow.utterances and len(flow.utterances) < 20:

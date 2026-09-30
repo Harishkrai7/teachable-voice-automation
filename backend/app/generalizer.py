@@ -93,7 +93,7 @@ def generalize(
                 "control is handed to the user at replay time. Nothing from that point was stored."
             )
             break
-        step = Step(action=a.action, value=a.value, target=a.target.model_copy() if a.target else None)
+        step = Step(index=len(steps), action=a.action, value=a.value, target=a.target.model_copy() if a.target else None)
         step.taughtValue = a.value
         refs: list[str] = []
 
