@@ -57,7 +57,7 @@ def decide(req: RecoverRequest) -> dict:
         hits = clickable or hits
         if len(hits) == 1:
             return dict(
-                decision=RecoveryDecision.RETRY_ALTERNATE, confidence=0.8,
+                decision=RecoveryDecision.RETRY_WITH_TARGET, confidence=0.8,
                 action=step.model_copy(update={"target": hits[0]}),
                 reason=f"Found {_label(hits[0])!r} matching {expected!r}; retry with this target.",
             )
@@ -83,14 +83,14 @@ def decide(req: RecoverRequest) -> dict:
     blob = " ".join(_label(n) for n in screen.nodes) + " " + (screen.screenTitle or "")
     if (pat := ALREADY_DONE.get(step.action)) and pat.search(blob):
         return dict(
-            decision=RecoveryDecision.SKIP_STEP, confidence=0.7,
+            decision=RecoveryDecision.CONTINUE, confidence=0.7,
             reason=f"The goal of {human_step} already appears to be reached; skip to the next step.",
         )
 
     # 5. Genuinely stuck: report the exact step instead of looping.
     if req.attempt >= MAX_ATTEMPTS:
         return dict(
-            decision=RecoveryDecision.FAIL, confidence=0.9,
+            decision=RecoveryDecision.ASK_USER, confidence=0.9,
             reason=f"Stopped at {human_step}: could not find {expected or 'the target'!r} on the {where} screen "
                    f"after {req.attempt} attempts.",
         )

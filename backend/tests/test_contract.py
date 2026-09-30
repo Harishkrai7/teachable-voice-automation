@@ -178,14 +178,14 @@ def test_recover_popup(client, zomato):
 def test_recover_changed_label(client, zomato):
     r = recover(client, "order_food_001", {"nodes": [
         {"text": "Margherita Pizza (Regular)", "clickable": True}, {"text": "Farmhouse", "clickable": True}]})
-    assert r["decision"] == "RETRY_ALTERNATE"
+    assert r["decision"] == "RETRY_WITH_TARGET"
     assert r["action"].target.text == "Margherita Pizza (Regular)"
 
 
 def test_recover_already_in_cart(client, zomato):
     r = recover(client, "order_food_001", {"nodes": [{"text": "View Cart"}, {"text": "1 item added"}]},
                 step={"action": "ADD_TO_CART", "target": {"text": "ADD"}})
-    assert r["decision"] == "SKIP_STEP"
+    assert r["decision"] == "CONTINUE"
 
 
 def test_recover_ambiguous_asks(client, zomato):
@@ -199,7 +199,7 @@ def test_recover_genuinely_stuck_reports_step(client, zomato):
     r = recover(client, "order_food_001", screen)
     assert r["decision"] == "ASK_USER" and "step 5" in r["question"]
     r = recover(client, "order_food_001", screen, attempt=3)
-    assert r["decision"] == "FAIL" and "step 5" in r["reason"]
+    assert r["decision"] == "ASK_USER" and "step 5" in r["reason"]
 
 
 def test_recover_sensitive(client, zomato):

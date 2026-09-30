@@ -28,7 +28,7 @@ class ActionType(str, Enum):
 class Target(BaseModel):
     """Semantic evidence about a UI element (roadmap phase A3). Never coordinates-only."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="allow", populate_by_name=True, serialize_by_alias=True)
 
     resourceId: str | None = None
     text: str | None = None
@@ -47,7 +47,7 @@ class Target(BaseModel):
 class ObservedAction(BaseModel):
     """One user action recorded by the Android Teaching Recorder."""
 
-    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    model_config = ConfigDict(extra="allow", populate_by_name=True, serialize_by_alias=True)
 
     action: ActionType = Field(alias="type")
     value: str | None = None
@@ -58,7 +58,7 @@ class ObservedAction(BaseModel):
 class Step(BaseModel):
     """A generalized (or resolved) flow step. `value` / `target.text` may hold {{slot}} templates."""
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
 
     index: int = 0
     action: ActionType = Field(alias="type")
@@ -84,7 +84,9 @@ class Flow(BaseModel):
 class ScreenSummary(BaseModel):
     """Compact description of the current screen, built by Android's UI Tree Reader."""
 
-    package: str | None = None
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    package: str | None = Field(default=None, alias="packageName")
     screenTitle: str | None = None
     nodes: list[Target] = Field(default_factory=list)
 
@@ -139,7 +141,7 @@ class Extraction(BaseModel):
 
 
 class TeachResponse(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
 
     status: Literal["LEARNED", "REJECTED"]
     requestId: str
@@ -162,7 +164,7 @@ class Option(BaseModel):
 
 
 class ReplayResponse(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
 
     status: ReplayStatus
     requestId: str
@@ -181,17 +183,15 @@ class ReplayResponse(BaseModel):
 
 
 class RecoveryDecision(str, Enum):
-    CONTINUE = "CONTINUE"                # Success, no recovery needed
-    RETRY_ALTERNATE = "RETRY_ALTERNATE"  # target found under slightly different evidence
-    DISMISS_POPUP = "DISMISS_POPUP"      # harmless popup, dismiss it then retry the step
-    SKIP_STEP = "SKIP_STEP"              # expected state already reached (e.g. already in cart)
-    ASK_USER = "ASK_USER"                # specific clarification question
-    STOP = "STOP"                        # sensitive screen, hand control to the user
-    FAIL = "FAIL"                        # genuinely stuck, report the step
+    CONTINUE = "CONTINUE"                    # Success / skip — no action needed
+    RETRY_WITH_TARGET = "RETRY_WITH_TARGET"  # target found under slightly different evidence
+    DISMISS_POPUP = "DISMISS_POPUP"          # harmless popup, dismiss it then retry the step
+    ASK_USER = "ASK_USER"                    # specific clarification question
+    STOP = "STOP"                            # sensitive screen, hand control to the user
 
 
 class RecoverResponse(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
 
     requestId: str
     decision: RecoveryDecision

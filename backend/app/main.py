@@ -200,7 +200,7 @@ def step_result(req: StepResultRequest, store: JsonFlowStore = Depends(get_store
     # Build a RecoverRequest dynamically for the recovery module
     step = flow.steps[req.stepIndex] if req.stepIndex < len(flow.steps) else None
     if not step:
-        return RecoverResponse(requestId=rid, decision="FAIL", reason="Invalid step index", confidence=1.0)
+        return RecoverResponse(requestId=rid, decision="ASK_USER", reason="Invalid step index", confidence=1.0)
         
     rec_req = RecoverRequest(
         requestId=rid, flowId=req.flowId, stepIndex=req.stepIndex,
