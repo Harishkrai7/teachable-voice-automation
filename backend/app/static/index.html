@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRISM Cloud Console</title>
+<style>
+  :root { --bg:#f6f7f9; --panel:#fff; --ink:#1b1f24; --muted:#5b6470; --line:#dde1e6; --accent:#1f5eff;
+          --ok:#12805c; --warn:#b25e00; --bad:#c62828; --code:#f0f2f5; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#111418; --panel:#1a1e24; --ink:#e7eaee; --muted:#9aa4b1;
+          --line:#2c323a; --accent:#6f9bff; --ok:#4cc38a; --warn:#f0a44b; --bad:#ff6b6b; --code:#0e1115; } }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.45 system-ui, -apple-system, Segoe UI, sans-serif; background:var(--bg); color:var(--ink); }
+  header { padding:16px 20px; border-bottom:1px solid var(--line); background:var(--panel); }
+  header h1 { margin:0; font-size:17px; } header p { margin:2px 0 0; color:var(--muted); font-size:13px; }
+  main { display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap:16px; padding:16px 20px; max-width:1400px; margin:0 auto; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; padding:16px; } }
+  section { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; }
+  h2 { font-size:14px; margin:0 0 10px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  label { display:block; font-size:12px; color:var(--muted); margin:8px 0 3px; }
+  input, textarea { width:100%; padding:7px 9px; border:1px solid var(--line); border-radius:6px; background:var(--code); color:var(--ink); font:inherit; }
+  textarea { font:12px/1.4 ui-monospace, Consolas, monospace; min-height:180px; resize:vertical; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  button { padding:7px 12px; border-radius:6px; border:1px solid var(--line); background:var(--panel); color:var(--ink); cursor:pointer; font:inherit; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button.small { padding:3px 8px; font-size:12px; }
+  pre { background:var(--code); border:1px solid var(--line); border-radius:6px; padding:10px; overflow:auto; max-height:520px; font:12px/1.4 ui-monospace, Consolas, monospace; margin:0; white-space:pre-wrap; word-break:break-word; }
+  .badge { font-size:11px; font-weight:600; padding:2px 8px; border-radius:99px; border:1px solid currentColor; }
+  .PLAN,.LEARNED,.RETRY_ALTERNATE,.SKIP_STEP,.DISMISS_POPUP { color:var(--ok); }
+  .ASK_USER,.NOT_LEARNED { color:var(--warn); } .STOP,.FAIL,.REJECTED,.ERROR { color:var(--bad); }
+  .q { margin:8px 0; padding:8px 10px; border-left:3px solid var(--warn); background:var(--code); border-radius:4px; }
+  .steps { margin:8px 0; padding-left:22px; } .steps li { margin:2px 0; } .steps code { font-size:12px; }
+  .flow { border-top:1px solid var(--line); padding:8px 0; display:flex; justify-content:space-between; gap:8px; align-items:center; }
+  .muted { color:var(--muted); font-size:12px; } .span2 { grid-column: 1 / -1; }
+</style>
+</head>
+<body>
+<header>
+  <h1>PRISM Theme 3 · Cloud Engine console</h1>
+  <p>Stands in for the Android app: send teach demonstrations, replay commands and recovery screens to the FastAPI backend. <a href="/docs">API docs</a></p>
+</header>
+<main>
+  <section>
+    <h2>1 · Teach <span class="row" style="margin:0"><button class="small" data-ex="teach_zomato">Zomato example</button><button class="small" data-ex="teach_amazon">Amazon example</button></span></h2>
+    <label for="t-utt">Spoken command</label><input id="t-utt">
+    <label for="t-app">App</label><input id="t-app">
+    <label for="t-actions">Recorded actions (JSON array from the Teaching Recorder)</label><textarea id="t-actions"></textarea>
+    <div class="row"><button class="primary" id="t-go">Send TEACH</button></div>
+  </section>
+
+  <section>
+    <h2>2 · Replay</h2>
+    <label for="r-utt">Spoken command</label><input id="r-utt" value="Order 2 Farmhouse pizzas from Dominos and deliver to office">
+    <label for="r-app">Current app (optional)</label><input id="r-app" value="Zomato">
+    <div class="row">
+      <button class="primary" id="r-go">Send REPLAY</button>
+      <button data-utt="Get me a margherita from dominos">Paraphrase</button>
+      <button data-utt="Buy 3 AA batteries on Amazon">Cross-app</button>
+      <button data-utt="Book a cab to the airport">Unknown intent</button>
+    </div>
+    <h2 style="margin-top:16px">3 · Recover a failed step</h2>
+    <label for="c-screen">Current screen summary (step 1 of the last plan is used)</label>
+    <textarea id="c-screen" style="min-height:110px">{"screenTitle":"Restaurant","nodes":[{"text":"Get 50% off!","className":"android.app.Dialog"},{"text":"Not now","clickable":true}]}</textarea>
+    <div class="row"><button class="primary" id="c-go">Send RECOVER</button></div>
+  </section>
+
+  <section>
+    <h2>Result <span id="badge"></span></h2>
+    <div id="summary"></div>
+    <pre id="out">Responses appear here.</pre>
+  </section>
+
+  <section>
+    <h2>Learned flows <button class="small" id="f-refresh">Refresh</button></h2>
+    <div id="flows" class="muted">No flows yet.</div>
+    <h2 style="margin-top:16px">Metrics</h2>
+    <pre id="metrics">{}</pre>
+  </section>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+let lastPlan = null;
+
+async function call(method, path, body) {
+  const r = await fetch(path, { method, headers: {"Content-Type": "application/json"}, body: body ? JSON.stringify(body) : undefined });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(data.detail ? JSON.stringify(data.detail) : r.statusText), { data });
+  return data;
+}
+
+function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function stepLine(s) {
+  const t = s.target ? (s.target.text || s.target.contentDescription || s.target.resourceId || "") : "";
+  return `<li><code>${esc(s.action)}</code> ${s.value != null ? "“" + esc(s.value) + "”" : ""} ${t && t !== s.value ? `<span class="muted">→ ${esc(t)}</span>` : ""}</li>`;
+}
+
+function show(data, status) {
+  $("#badge").innerHTML = status ? `<span class="badge ${esc(status)}">${esc(status)}</span>` : "";
+  let html = "";
+  if (data.question) html += `<div class="q">${esc(data.question)}</div>`;
+  if (data.reason && !data.question) html += `<div class="q">${esc(data.reason)}</div>`;
+  (data.warnings || []).forEach(w => html += `<div class="q">${esc(w)}</div>`);
+  if (data.options?.length && data.options[0].flowId) {
+    html += `<div class="row">` + data.options.map(o => `<button class="small" data-pick="${esc(o.flowId)}">${esc(o.label)}</button>`).join("") + `</div>`;
+  }
+  const steps = data.actions || data.flow?.steps;
+  if (steps?.length) html += `<ol class="steps">${steps.map(stepLine).join("")}</ol>`;
+  $("#summary").innerHTML = html;
+  $("#out").textContent = JSON.stringify(data, null, 2);
+}
+
+async function run(fn) {
+  try { await fn(); } catch (e) { show(e.data || { error: e.message }, "ERROR"); }
+  refresh();
+}
+
+async function refresh() {
+  const [flows, metrics] = await Promise.all([call("GET", "/v1/flows"), call("GET", "/v1/metrics")]);
+  $("#metrics").textContent = JSON.stringify(metrics, null, 2);
+  $("#flows").innerHTML = flows.length ? flows.map(f => `
+    <div class="flow"><div><b>${esc(f.flowId)}</b> · ${esc(f.app || "")} · ${f.steps.length} steps<br>
+    <span class="muted">${esc(Object.entries(f.slots).map(([k,v]) => k + "=" + v).join(", "))}</span></div>
+    <button class="small" data-del="${esc(f.flowId)}">Delete</button></div>`).join("") : "No flows yet.";
+}
+
+async function loadExample(name) {
+  const ex = await (await fetch(`/examples/${name}.json`)).json();
+  $("#t-utt").value = ex.utterance; $("#t-app").value = ex.app || "";
+  $("#t-actions").value = JSON.stringify(ex.actions, null, 1);
+}
+
+async function replay(flowId) {
+  const body = { mode: "REPLAY", utterance: $("#r-utt").value, currentApp: $("#r-app").value || null };
+  if (flowId) body.flowId = flowId;
+  const d = await call("POST", "/v1/replay", body);
+  if (d.status === "PLAN") lastPlan = d;
+  show(d, d.status);
+}
+
+$("#t-go").onclick = () => run(async () => {
+  const d = await call("POST", "/v1/teach", { mode: "TEACH", utterance: $("#t-utt").value, app: $("#t-app").value || null,
+    actions: JSON.parse($("#t-actions").value) });
+  show(d, d.status);
+});
+$("#r-go").onclick = () => run(() => replay());
+$("#c-go").onclick = () => run(async () => {
+  if (!lastPlan) throw new Error("Run a successful REPLAY first so there is a plan to recover.");
+  const d = await call("POST", "/v1/recover", { flowId: lastPlan.flowId, stepIndex: 0, step: lastPlan.actions[0],
+    screen: JSON.parse($("#c-screen").value) });
+  show(d, d.decision);
+});
+$("#f-refresh").onclick = refresh;
+document.addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.ex) loadExample(b.dataset.ex);
+  if (b.dataset.utt) { $("#r-utt").value = b.dataset.utt; run(() => replay()); }
+  if (b.dataset.pick) run(() => replay(b.dataset.pick));
+  if (b.dataset.del) run(() => call("DELETE", `/v1/flows/${encodeURIComponent(b.dataset.del)}`));
+});
+loadExample("teach_zomato"); refresh();
+</script>
+</body>
+</html>
