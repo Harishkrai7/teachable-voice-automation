@@ -103,7 +103,10 @@ def teach(req: TeachRequest, store: JsonFlowStore = Depends(get_store), ex: Extr
     ))
     store.log("teach", requestId=rid, status="LEARNED", flowId=flow.flowId, intent=intent,
               steps=len(steps), dropped=dropped, slots=list(slots))
-    return TeachResponse(status="LEARNED", requestId=rid, flow=flow, droppedActions=dropped, warnings=warnings)
+    return TeachResponse(
+        status="LEARNED", requestId=rid, flow=flow, droppedActions=dropped, warnings=warnings,
+        reason="Successfully learned the command!"
+    )
 
 
 # ---- REPLAY ------------------------------------------------------------------

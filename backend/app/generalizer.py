@@ -102,7 +102,7 @@ def generalize(
             refs.append(name)
         if step.target is not None:
             step.taughtTargetText = step.target.text
-            for field in ("text", "contentDescription"):
+            for field in ("text", "contentDescription", "parentText"):
                 if (name := _slot_for(getattr(step.target, field), slots, a.action)) is not None:
                     setattr(step.target, field, "{{%s}}" % name)
                     refs.append(name)
@@ -147,5 +147,6 @@ def resolve(steps: list[Step], slots: dict[str, Any]) -> tuple[list[Step], list[
         if r.target is not None:
             r.target.text = sub(r.target.text)
             r.target.contentDescription = sub(r.target.contentDescription)
+            r.target.parentText = sub(r.target.parentText)
         out.append(r)
     return out, sorted(set(missing))
