@@ -17,7 +17,7 @@ android {
     buildConfigField(
         "String",
         "BASE_URL",
-        "\"http://10.0.2.2:8000/\""
+        "\"https://teachable-voice-backend-52478641978.asia-south1.run.app/\""
     )
 }
 
