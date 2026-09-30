@@ -33,7 +33,7 @@ def zomato(client):
 
 
 def by_action(actions, name):
-    return [a for a in actions if a["action"] == name]
+    return [a for a in actions if a["type"] == name]
 
 
 # T1 - teach a new food flow; noise dropped; payment boundary respected
@@ -172,7 +172,7 @@ def recover(client, flow_id, screen, attempt=1, step=None):
 def test_recover_popup(client, zomato):
     r = recover(client, "order_food_001", {"screenTitle": "Restaurant", "nodes": [
         {"text": "Get 50% off!", "className": "android.app.Dialog", "clickable": True}, {"text": "Not now", "clickable": True}]})
-    assert r["decision"] == "DISMISS_POPUP" and r["action"].target.text == "Not now"
+    assert r["decision"] == "DISMISS_POPUP" and r["action"].target.text == "Not now" and r["action"].action == "DISMISS"
 
 
 def test_recover_changed_label(client, zomato):

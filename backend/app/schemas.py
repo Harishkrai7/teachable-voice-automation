@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 CONTRACT_VERSION = "1.0"
 
@@ -47,9 +47,9 @@ class Target(BaseModel):
 class ObservedAction(BaseModel):
     """One user action recorded by the Android Teaching Recorder."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
 
-    action: ActionType
+    action: ActionType = Field(alias="type")
     value: str | None = None
     target: Target | None = None
     timestampMs: int | None = None
@@ -58,7 +58,9 @@ class ObservedAction(BaseModel):
 class Step(BaseModel):
     """A generalized (or resolved) flow step. `value` / `target.text` may hold {{slot}} templates."""
 
-    action: ActionType
+    model_config = ConfigDict(populate_by_name=True)
+
+    action: ActionType = Field(alias="type")
     value: str | None = None
     target: Target | None = None
     slotRefs: list[str] = Field(default_factory=list)
@@ -182,10 +184,17 @@ class RecoveryDecision(str, Enum):
 
 
 class RecoverResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     requestId: str
     decision: RecoveryDecision
     action: Step | None = None
     question: str | None = None
     options: list[str] = Field(default_factory=list)
-    reason: str
+    reason: str = Field(alias="message")
     confidence: float = Field(ge=0, le=1)
+
+    @computed_field
+    @property
+    def target(self) -> Target | None:
+        return self.action.target if self.action else None
