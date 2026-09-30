@@ -157,24 +157,29 @@ def test_changing_an_untaught_slot_asks(client):
     assert r["status"] == "ASK_USER" and "quantity" in r["question"]
 
 
-# T7 / T10 / T14 - recovery reasoning
+from app import recovery
+from app.schemas import RecoverRequest, Step, Target, ScreenSummary
+
 def recover(client, flow_id, screen, attempt=1, step=None):
-    step = step or {"action": "SELECT", "target": {"text": "Margherita"}}
-    return client.post("/v1/recover", json={
-        "flowId": flow_id, "stepIndex": 4, "step": step, "screen": screen, "attempt": attempt}).json()
+    step = step or {"action": "SELECT", "target": {"text": "Margherita", "clickable": True}}
+    req = RecoverRequest(
+        flowId=flow_id, stepIndex=4, attempt=attempt,
+        step=Step(**step), screen=ScreenSummary(**screen)
+    )
+    return recovery.decide(req)
 
 
 def test_recover_popup(client, zomato):
     r = recover(client, "order_food_001", {"screenTitle": "Restaurant", "nodes": [
-        {"text": "Get 50% off!", "className": "android.app.Dialog"}, {"text": "Not now", "clickable": True}]})
-    assert r["decision"] == "DISMISS_POPUP" and r["action"]["target"]["text"] == "Not now"
+        {"text": "Get 50% off!", "className": "android.app.Dialog", "clickable": True}, {"text": "Not now", "clickable": True}]})
+    assert r["decision"] == "DISMISS_POPUP" and r["action"].target.text == "Not now"
 
 
 def test_recover_changed_label(client, zomato):
     r = recover(client, "order_food_001", {"nodes": [
         {"text": "Margherita Pizza (Regular)", "clickable": True}, {"text": "Farmhouse", "clickable": True}]})
     assert r["decision"] == "RETRY_ALTERNATE"
-    assert r["action"]["target"]["text"] == "Margherita Pizza (Regular)"
+    assert r["action"].target.text == "Margherita Pizza (Regular)"
 
 
 def test_recover_already_in_cart(client, zomato):

@@ -115,14 +115,15 @@ class RecoverRequest(BaseModel):
     attempt: int = Field(default=1, ge=1)
 
 
-class StepResult(BaseModel):
+class StepResultRequest(BaseModel):
     contractVersion: str = CONTRACT_VERSION
     requestId: str | None = None
     flowId: str
     stepIndex: int = Field(ge=0)
     success: bool
-    stateSummary: str | None = None
-    failureReason: str | None = None
+    expected: Target | None = None
+    screen: ScreenSummary | None = None
+    error: str | None = None
 
 
 # ---- Responses ---------------------------------------------------------------
@@ -171,6 +172,7 @@ class ReplayResponse(BaseModel):
 
 
 class RecoveryDecision(str, Enum):
+    CONTINUE = "CONTINUE"                # Success, no recovery needed
     RETRY_ALTERNATE = "RETRY_ALTERNATE"  # target found under slightly different evidence
     DISMISS_POPUP = "DISMISS_POPUP"      # harmless popup, dismiss it then retry the step
     SKIP_STEP = "SKIP_STEP"              # expected state already reached (e.g. already in cart)

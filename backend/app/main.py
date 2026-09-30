@@ -17,7 +17,7 @@ from . import generalizer, matcher, recovery, safety
 from .intents import Extractor, build_extractor
 from .schemas import (
     CONTRACT_VERSION, Flow, RecoverRequest, RecoverResponse, ReplayRequest, ReplayResponse,
-    ReplayStatus, StepResult, TeachRequest, TeachResponse,
+    ReplayStatus, StepResultRequest, TeachRequest, TeachResponse,
 )
 from .store import JsonFlowStore
 from .text import norm, tokens
@@ -63,8 +63,8 @@ async def access_log(request: Request, call_next):
 
 # ---- health / contract -------------------------------------------------------
 
-@app.get("/healthz")
-def healthz():
+@app.get("/health")
+def health():
     return {"ok": True, "contractVersion": CONTRACT_VERSION}
 
 
@@ -182,21 +182,32 @@ def replay(req: ReplayRequest, store: JsonFlowStore = Depends(get_store), ex: Ex
 
 # ---- RECOVER / STEP RESULT ---------------------------------------------------
 
-@app.post("/v1/recover", response_model=RecoverResponse, response_model_exclude_none=True)
-def recover(req: RecoverRequest, store: JsonFlowStore = Depends(get_store)):
-    if store.get(req.flowId) is None:
+@app.post("/v1/step-result", response_model=RecoverResponse, response_model_exclude_none=True)
+def step_result(req: StepResultRequest, store: JsonFlowStore = Depends(get_store)):
+    flow = store.get(req.flowId)
+    if flow is None:
         raise HTTPException(404, f"Unknown flowId {req.flowId}")
-    rid = req.requestId or new_request_id()
-    resp = RecoverResponse(requestId=rid, **recovery.decide(req))
-    store.log("recover", requestId=rid, flowId=req.flowId, stepIndex=req.stepIndex,
-              attempt=req.attempt, decision=resp.decision.value, reason=resp.reason)
-    return resp
-
-
-@app.post("/v1/step-result")
-def step_result(req: StepResult, store: JsonFlowStore = Depends(get_store)):
+        
     store.log("step_result", **req.model_dump())
-    return {"ok": True}
+    
+    if req.success or not req.screen:
+        return RecoverResponse(requestId=req.requestId or new_request_id(), decision="CONTINUE", reason="Success", confidence=1.0)
+        
+    rid = req.requestId or new_request_id()
+    # Build a RecoverRequest dynamically for the recovery module
+    step = flow.steps[req.stepIndex] if req.stepIndex < len(flow.steps) else None
+    if not step:
+        return RecoverResponse(requestId=rid, decision="FAIL", reason="Invalid step index", confidence=1.0)
+        
+    rec_req = RecoverRequest(
+        requestId=rid, flowId=req.flowId, stepIndex=req.stepIndex,
+        step=step, screen=req.screen, attempt=1
+    )
+    
+    resp = RecoverResponse(requestId=rid, **recovery.decide(rec_req))
+    store.log("recover", requestId=rid, flowId=req.flowId, stepIndex=req.stepIndex,
+              attempt=1, decision=resp.decision.value, reason=resp.reason)
+    return resp
 
 
 # ---- flows / metrics ---------------------------------------------------------
