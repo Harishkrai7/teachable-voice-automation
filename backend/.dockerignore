@@ -1,13 +1,5 @@
-venv/
+data/
 __pycache__/
 .pytest_cache/
-.env
-flows/
-*.pyc
-.git/
-.gitignore
-test_gemini_key.py
-diagnose_key.py
-test_gemini_live.py
-test_milestone4_e2e.py
+.venv/
 tests/

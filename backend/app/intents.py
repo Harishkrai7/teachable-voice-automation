@@ -134,9 +134,15 @@ class GeminiExtractor:
 
     def __init__(self, model: str | None = None):
         from google import genai  # optional dependency: pip install -r requirements-llm.txt
+        from app.config import settings
 
-        self.client = genai.Client()
-        self.model = model or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+        self.client = genai.Client(
+            vertexai=True,
+            project=settings.google_cloud_project,
+            location=settings.google_cloud_region,
+            http_options={'api_version': 'v1'}
+        )
+        self.model = model or settings.vertex_gemini_model
         self.fallback = RuleExtractor()
 
     def extract(self, utterance: str, known_intents: list[str] | None = None) -> Extraction:
