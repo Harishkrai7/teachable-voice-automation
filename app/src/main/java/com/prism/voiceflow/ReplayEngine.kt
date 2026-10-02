@@ -55,7 +55,26 @@ class ReplayEngine(private val svc: VoiceFlowService, private val cloud: CloudCl
             "SCROLL" -> { ex.scrollForward(root); settle(); return null }
         }
         val t = step.target ?: return "⚠️ Step ${step.index + 1} has no target."
-        var node = find(t, afterType)
+        var node = find(t, afterType, step.type)
+
+        // For TYPE/SEARCH: if no editable field found yet, try tapping a clickable hint node.
+        // Many apps (e.g. Zomato) show the search bar as a non-editable clickable TextView
+        // (a fake placeholder) that opens a real EditText only after being tapped.
+        if (node == null && (step.type == "TYPE" || step.type == "SEARCH")) {
+            val hintNode = UiTree.visible(root).firstOrNull { n ->
+                !n.isEditable && n.isClickable && (
+                    (t.resourceId != null && n.viewIdResourceName == t.resourceId) ||
+                    (t.text != null && TextUtil.similarity(n.text, t.text) >= 0.7) ||
+                    (t.contentDescription != null && TextUtil.similarity(n.contentDescription, t.contentDescription) >= 0.7)
+                )
+            }
+            if (hintNode != null) {
+                Log.i(TAG, "Tapping hint node '${UiTree.ownLabel(hintNode)}' to open editor for step ${step.index + 1}")
+                ex.click(hintNode)
+                settle(minMs = 800, maxMs = 2500)
+                node = find(t, false, step.type)
+            }
+        }
 
         if (node == null) {
             val decision = try {
@@ -76,7 +95,7 @@ class ReplayEngine(private val svc: VoiceFlowService, private val cloud: CloudCl
                     "DISMISS_POPUP" -> {
                         val closeBtn = proposed?.let { TargetResolver.resolve(root, it) }
                         if (closeBtn != null) { ex.click(closeBtn); settle() }
-                        node = find(t, false)
+                        node = find(t, false, step.type)
                     }
                 }
             }
@@ -100,13 +119,22 @@ class ReplayEngine(private val svc: VoiceFlowService, private val cloud: CloudCl
         return null
     }
 
-    /** Waits for loading, tries the keyboard's search key after typing, then scrolls. */
-    private suspend fun find(t: Target, afterType: Boolean): AccessibilityNodeInfo? {
+    /**
+     * Waits for loading, tries the keyboard's search key after typing, then scrolls.
+     *
+     * IMPORTANT: TYPE and SEARCH steps NEVER scroll. Scrolling cannot reveal a hidden text
+     * field — it only destructively swipes horizontal carousels (e.g. Zomato home screen).
+     * For those steps we break out immediately after the enter-key retry.
+     */
+    private suspend fun find(t: Target, afterType: Boolean, stepType: String = "CLICK"): AccessibilityNodeInfo? {
+        val isTextEntry = stepType == "TYPE" || stepType == "SEARCH"
         var enterTried = !afterType
         for (attempt in 0 until 7) {
             TargetResolver.resolve(root, t)?.let { return it }
             if (attempt < 2) { delay(800); continue }
             if (!enterTried) { enterTried = true; ex.enter(root); settle(); continue }
+            // Never scroll to find a text input — scrolling swipes carousels, not reveals fields.
+            if (isTextEntry) break
             if (!ex.scrollForward(root)) break
             settle()
         }
