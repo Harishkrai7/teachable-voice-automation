@@ -49,7 +49,17 @@ class Recorder {
         val value = if (hint != null && text == hint) "" else text
         val last = actions.lastOrNull()
         if (last != null && last.type == "TYPE" && last.target?.resourceId == t.resourceId) {
-            last.value = value
+            val prev = last.value ?: ""
+            // Only update if the new text is a plausible user keystroke:
+            // - shorter (user deleted characters), or
+            // - a direct continuation (new text starts with what was already typed).
+            // If the new text is LONGER but does NOT start with the previous value,
+            // it is an autocomplete injection (e.g. Myntra filling "large black shirt"
+            // after the user typed "black shirt") — IGNORE IT.
+            val isUserEdit = value.length <= prev.length || value.startsWith(prev)
+            if (isUserEdit) {
+                last.value = value
+            }
         } else {
             actions.add(DemoAction(type = "TYPE", target = t, value = value))
         }
