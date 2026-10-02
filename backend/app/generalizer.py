@@ -148,8 +148,13 @@ def resolve(steps: list[Step], slots: dict[str, Any]) -> tuple[list[Step], list[
         r = st.model_copy(deep=True)
         r.value = sub(r.value)
         if r.target is not None:
+            orig_text = r.target.text
             r.target.text = sub(r.target.text)
             r.target.contentDescription = sub(r.target.contentDescription)
             r.target.parentText = sub(r.target.parentText)
+            # If the target text changed because it was a slot template, flag it
+            # so Android falls back to resourceId/taughtTargetText for matching.
+            if r.target.text != orig_text:
+                r.targetIsSlotResolved = True
         out.append(r)
     return out, sorted(set(missing))

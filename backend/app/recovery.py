@@ -35,6 +35,14 @@ def _expected(step: Step) -> str | None:
     return step.value
 
 
+def _taught(step: Step) -> str | None:
+    """The original text the user tapped during teaching (before slot substitution)."""
+    if step.taughtTargetText:
+        return step.taughtTargetText
+    t = step.target
+    return (t.text or t.contentDescription) if t else None
+
+
 def decide(req: RecoverRequest) -> dict:
     step, screen = req.step, req.screen
     where = screen.screenTitle or screen.package or "current"
@@ -51,11 +59,18 @@ def decide(req: RecoverRequest) -> dict:
     usable = [n for n in screen.nodes if n.enabled is not False]
 
     # 2. Expected target visible under slightly different evidence (renamed id, changed label).
+    # First try the current (slot-resolved) expected text; then fall back to the taught text
+    # (e.g. the literal "ADD" button that was tapped during teaching).
     hits = []
-    if expected:
-        hits = [n for n in usable if similar(n.text, expected) or similar(n.contentDescription, expected) or similar(n.parentText, expected)]
-    if step.target and step.target.resourceId:
-        hits += [n for n in usable if n.resourceId == step.target.resourceId and n not in hits]
+    for candidate_label in dict.fromkeys([expected, _taught(step)]):  # deduped, order preserved
+        if candidate_label:
+            hits = [n for n in usable if similar(n.text, candidate_label)
+                    or similar(n.contentDescription, candidate_label)
+                    or similar(n.parentText, candidate_label)]
+        if step.target and step.target.resourceId:
+            hits += [n for n in usable if n.resourceId == step.target.resourceId and n not in hits]
+        if hits:
+            break  # found something, no need to try the taught fallback
     
     if hits:
         clickable = [n for n in hits if n.clickable is not False]

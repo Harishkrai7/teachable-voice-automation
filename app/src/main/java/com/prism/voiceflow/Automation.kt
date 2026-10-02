@@ -41,11 +41,31 @@ object TargetResolver {
 
         if (label != null) {
             val threshold = if (t.textIsTemplate) 0.8 else 0.85
-            return nodes.asSequence()
+            val byLabel = nodes.asSequence()
                 .filter { !it.isEditable }
                 .map { it to score(it, label) + bonus(it, t) }
                 .filter { it.second >= threshold }
                 .maxByOrNull { it.second }?.first
+            if (byLabel != null) return byLabel
+        }
+
+        // When the step text is a slot-resolved value (e.g. "Chicken Biryani"),
+        // the actual on-screen button may say "ADD" (the taughtTargetText).
+        // Fall back: match by resourceId alone, then by taughtTargetText.
+        if (t.targetIsSlotResolved) {
+            if (t.resourceId != null) {
+                val byId = nodes.filter { it.viewIdResourceName == t.resourceId && it.isClickable }
+                if (byId.size == 1) return byId[0]
+            }
+            val taught = t.taughtTargetText
+            if (taught != null) {
+                val byTaught = nodes.asSequence()
+                    .filter { !it.isEditable }
+                    .map { it to score(it, taught) + bonus(it, t) }
+                    .filter { it.second >= 0.75 }
+                    .maxByOrNull { it.second }?.first
+                if (byTaught != null) return byTaught
+            }
         }
 
         val b = t.bounds ?: return null

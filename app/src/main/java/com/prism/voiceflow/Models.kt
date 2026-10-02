@@ -33,6 +33,8 @@ data class Step(
     var repeat: Int = 1,
     var repeatSlot: String? = null,
     var repeatOffset: Int = 0,
+    var taughtTargetText: String? = null,
+    var targetIsSlotResolved: Boolean = false,
 )
 
 data class Flow(
@@ -85,6 +87,7 @@ data class ReplayResponse(
 data class ScreenSummary(
     var packageName: String? = null,
     var nodes: List<Target> = emptyList(),
+    var screenTitle: String? = null,
 )
 
 data class StepResultRequest(

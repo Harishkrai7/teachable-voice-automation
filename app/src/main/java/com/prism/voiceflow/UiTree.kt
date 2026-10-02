@@ -62,6 +62,22 @@ object UiTree {
     /** Compact screen description sent to Cloud when a step fails. Never includes typed secrets. */
     fun summary(root: AccessibilityNodeInfo?, max: Int = 150): ScreenSummary {
         val nodes = visible(root)
+        // Extract a best-guess screen title from toolbar/header nodes
+        val screenTitle = nodes.firstOrNull { n ->
+            val cls = n.className?.toString() ?: ""
+            val id = n.viewIdResourceName ?: ""
+            (cls.contains("Toolbar", ignoreCase = true) ||
+             cls.contains("ActionBar", ignoreCase = true) ||
+             id.contains("toolbar", ignoreCase = true) ||
+             id.contains("title", ignoreCase = true) ||
+             id.contains("header", ignoreCase = true))
+            && !n.text.isNullOrBlank()
+        }?.text?.toString()
+            ?: nodes.firstOrNull { n ->
+                !n.text.isNullOrBlank() && !n.isEditable && !n.isClickable &&
+                n.childCount == 0 && (n.text?.length ?: 0) < 60
+            }?.text?.toString()
+        val usableNodes = nodes
             .filter { ownLabel(it) != null || it.isClickable || it.isEditable }
             .take(max)
             .map { n ->
@@ -69,7 +85,7 @@ object UiTree {
                     if (n.isEditable) text = if (n.isPassword) null else n.hintText?.toString()
                 }
             }
-        return ScreenSummary(root?.packageName?.toString(), nodes)
+        return ScreenSummary(root?.packageName?.toString(), usableNodes, screenTitle)
     }
 
     /** Milestone M1 inspector: human-readable dump for logcat. */

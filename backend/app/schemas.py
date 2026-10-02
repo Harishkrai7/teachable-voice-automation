@@ -67,6 +67,9 @@ class Step(BaseModel):
     slotRefs: list[str] = Field(default_factory=list)
     taughtValue: str | None = None
     taughtTargetText: str | None = None
+    # True when target.text is a resolved slot value (e.g. "Chicken Biryani");
+    # Android must use resourceId / taughtTargetText for matching, not the slot text.
+    targetIsSlotResolved: bool = False
 
 
 class Flow(BaseModel):
