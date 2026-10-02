@@ -1,5 +1,6 @@
 package com.prism.voiceflow
 
+import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
 
 /**
@@ -50,15 +51,15 @@ class Recorder {
         val last = actions.lastOrNull()
         if (last != null && last.type == "TYPE" && last.target?.resourceId == t.resourceId) {
             val prev = last.value ?: ""
-            // Only update if the new text is a plausible user keystroke:
-            // - shorter (user deleted characters), or
-            // - a direct continuation (new text starts with what was already typed).
-            // If the new text is LONGER but does NOT start with the previous value,
-            // it is an autocomplete injection (e.g. Myntra filling "large black shirt"
-            // after the user typed "black shirt") — IGNORE IT.
+            // A direct continuation means the user pressed a key (text grows by starting with prev),
+            // or deleted characters (text is shorter). Anything else is an autocomplete injection.
             val isUserEdit = value.length <= prev.length || value.startsWith(prev)
             if (isUserEdit) {
                 last.value = value
+            } else {
+                // Store the autocomplete suggestion separately — visible in logs but not used for replay.
+                last.autocompleteValue = value
+                Log.d(TAG, "Autocomplete injection detected: typed='${last.value}' autocomplete='$value' — stored for debug logs")
             }
         } else {
             actions.add(DemoAction(type = "TYPE", target = t, value = value))
@@ -81,4 +82,6 @@ class Recorder {
     private fun sameTarget(a: Target?, b: Target?) =
         a != null && b != null && a.resourceId == b.resourceId && a.text == b.text &&
             a.contentDescription == b.contentDescription && a.bounds == b.bounds
+
+    companion object { const val TAG = "VoiceFlow" }
 }

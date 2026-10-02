@@ -13,7 +13,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import generalizer, matcher, recovery, safety
+from . import generalizer, matcher, recovery, safety, session_logger
 from .intents import Extractor, build_extractor
 from .schemas import (
     CONTRACT_VERSION, Flow, RecoverRequest, RecoverResponse, ReplayRequest, ReplayResponse,
@@ -97,6 +97,12 @@ def teach(req: TeachRequest, store: JsonFlowStore = Depends(get_store), ex: Extr
     ))
     store.log("teach", requestId=rid, status="LEARNED", flowId=flow.flowId, intent=intent,
               steps=len(steps), dropped=dropped, slots=list(slots))
+    session_logger.log_teach(
+        request_id=rid, utterance=req.utterance, intent=intent,
+        app=req.app or extraction.app, slots=slots, steps=steps,
+        warnings=warnings, actions_recorded=len(req.actions),
+        actions_dropped=dropped, flow_id=flow.flowId, status="LEARNED",
+    )
     return TeachResponse(
         status="LEARNED", requestId=rid, flow=flow, droppedActions=dropped, warnings=warnings,
         reason="Successfully learned the command!"
@@ -108,18 +114,25 @@ def teach(req: TeachRequest, store: JsonFlowStore = Depends(get_store), ex: Extr
 @app.post("/v1/replay", response_model=ReplayResponse, response_model_exclude_none=True)
 def replay(req: ReplayRequest, store: JsonFlowStore = Depends(get_store), ex: Extractor = Depends(get_extractor)):
     rid = new_request_id()
+    flows = store.list()
+    extraction = ex.extract(req.utterance, [f.intent for f in flows])
 
-    def done(resp: ReplayResponse, **extra) -> ReplayResponse:
+    def done(resp: ReplayResponse, changed_slots: list[str] | None = None, **extra) -> ReplayResponse:
         store.log("replay", requestId=rid, status=resp.status.value, flowId=resp.flowId,
                   utterance=req.utterance, **extra)
+        session_logger.log_replay(
+            request_id=rid, utterance=req.utterance, intent=resp.intent or "?",
+            app=resp.app, matched_flow_id=resp.flowId,
+            slots_extracted=extraction.slots,
+            slots_resolved=dict(resp.slots), defaulted_slots=list(resp.defaultedSlots),
+            changed_slots=changed_slots or [],
+            steps=list(resp.actions), status=resp.status.value, message=resp.reason,
+        )
         return resp
 
     if cat := safety.classify_screen(req.uiSummary):
         return done(ReplayResponse(status=ReplayStatus.STOP, requestId=rid,
                                    reason=f"{cat} screen is open. Your turn - please complete it first."))
-
-    flows = store.list()
-    extraction = ex.extract(req.utterance, [f.intent for f in flows])
 
     if req.flowId:
         flow = store.get(req.flowId)
@@ -174,7 +187,7 @@ def replay(req: ReplayRequest, store: JsonFlowStore = Depends(get_store), ex: Ex
     return done(ReplayResponse(
         status=ReplayStatus.PLAN, requestId=rid, intent=flow.intent, flowId=flow.flowId, app=flow.app,
         slots=resolved, defaultedSlots=defaulted, actions=actions, stopBefore=flow.stopBefore,
-    ), changedSlots=changed)
+    ), changed_slots=changed)
 
 
 # ---- RECOVER / STEP RESULT ---------------------------------------------------
@@ -204,6 +217,17 @@ def step_result(req: StepResultRequest, store: JsonFlowStore = Depends(get_store
     resp = RecoverResponse(requestId=rid, **recovery.decide(rec_req))
     store.log("recover", requestId=rid, flowId=req.flowId, stepIndex=req.stepIndex,
               attempt=1, decision=resp.decision.value, reason=resp.reason)
+    session_logger.log_recovery(
+        request_id=rid, flow_id=req.flowId,
+        step_index=req.stepIndex,
+        step_action=step.action.value,
+        step_target_text=(step.target.text or step.target.contentDescription or step.taughtTargetText) if step.target else None,
+        decision=resp.decision.value, confidence=resp.confidence, reason=resp.reason,
+        screen_package=req.screen.package if req.screen else None,
+        screen_title=req.screen.screenTitle if req.screen else None,
+        screen_node_count=len(req.screen.nodes) if req.screen else 0,
+        attempt=1,
+    )
     return resp
 
 
@@ -231,3 +255,18 @@ def delete_flow(flow_id: str, store: JsonFlowStore = Depends(get_store)):
 @app.get("/v1/metrics")
 def metrics(store: JsonFlowStore = Depends(get_store)):
     return store.metrics()
+
+
+# ---- logs (for debug) --------------------------------------------------------
+
+@app.get("/v1/logs")
+def get_logs(
+    limit: int = 50,
+    type: str | None = None,  # TEACH | REPLAY | RECOVERY
+):
+    """
+    Returns the last `limit` structured session log entries.
+    Useful for feeding to AI for debugging — paste the output directly.
+    Example: GET /v1/logs?limit=10&type=TEACH
+    """
+    return session_logger.read_recent(limit=min(limit, 200), event_type=type)

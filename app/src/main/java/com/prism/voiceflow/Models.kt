@@ -23,6 +23,10 @@ data class DemoAction(
     var target: Target? = null,
     var value: String? = null,
     var repeat: Int = 1,
+    // Set when the app's autocomplete filled the field with a different value than the user typed.
+    // E.g. user typed "black shirt", Myntra suggested "large black shirt" → autocompleteValue = "large black shirt".
+    // The backend logs this for debugging but uses `value` (what the user actually typed) for the search step.
+    var autocompleteValue: String? = null,
 )
 
 data class Step(
