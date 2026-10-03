@@ -6,93 +6,92 @@ import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
 import android.speech.RecognizerIntent
-import android.text.InputType
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
-import android.widget.LinearLayout
-import android.widget.ScrollView
+import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class MainActivity : Activity() {
 
     private val scope = MainScope()
     private val prefs by lazy { getSharedPreferences("voiceflow", MODE_PRIVATE) }
-    private lateinit var urlField: EditText
-    private lateinit var keyField: EditText
-    private lateinit var cmdField: EditText
-    private lateinit var status: TextView
+
+    private lateinit var etCommand: EditText
+    private lateinit var tvStatus: TextView
     private var pendingAfterSpeech: ((String) -> Unit)? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val pad = (16 * resources.displayMetrics.density).toInt()
-        val col = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; setPadding(pad, pad, pad, pad)
-        }
-        fun button(label: String, onClick: () -> Unit) =
-            Button(this).apply { text = label; setOnClickListener { onClick() } }.also { col.addView(it) }
+        setContentView(R.layout.activity_main)
 
-        col.addView(TextView(this).apply { text = "Teachable Voice Automation"; textSize = 22f })
-        urlField = EditText(this).apply {
-            hint = "Server URL, e.g. https://prism-xxxx.a.run.app"
-            inputType = InputType.TYPE_TEXT_VARIATION_URI
-            setText(prefs.getString("url", "https://teachable-voice-backend-52478641978.asia-south1.run.app"))
-        }.also { col.addView(it) }
-        keyField = EditText(this).apply {
-            hint = "API key (optional)"
-            setText(prefs.getString("key", ""))
-        }.also { col.addView(it) }
-        button("Test connection") { testConnection() }
-        button("Enable accessibility service") {
+        etCommand   = findViewById(R.id.etCommand)
+        tvStatus    = findViewById(R.id.tvStatus)
+
+        // Settings button → opens SettingsActivity
+        findViewById<ImageButton>(R.id.btnSettings).setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+
+        // Accessibility shortcut button
+        findViewById<Button>(R.id.btnEnableA11y).setOnClickListener {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
-        cmdField = EditText(this).apply {
-            hint = "Command, e.g. Order 2 Margherita Pizza from Dominos on Zomato"
-        }.also { col.addView(it) }
-        button("🎤  Speak command") { listen(null) }
-        button("🎤  Speak & RUN") { listen { replay(it) } }
-        button("Teach this command") { teach(cmdField.text.toString()) }
-        button("Run this command") { replay(cmdField.text.toString()) }
-        button("Debug: log screen tree in 5 s") { dumpLater() }
-        status = TextView(this).apply { setPadding(0, pad, 0, 0); textSize = 15f }
-            .also { col.addView(it) }
 
-        setContentView(ScrollView(this).apply { addView(col) })
+        // Voice buttons
+        findViewById<Button>(R.id.btnSpeak).setOnClickListener { listen(null) }
+        findViewById<Button>(R.id.btnSpeakRun).setOnClickListener { listen { replay(it) } }
+
+        // Teach / Run
+        findViewById<Button>(R.id.btnTeach).setOnClickListener {
+            teach(etCommand.text.toString())
+        }
+        findViewById<Button>(R.id.btnRun).setOnClickListener {
+            replay(etCommand.text.toString())
+        }
+
+        // Debug
+        findViewById<Button>(R.id.btnDebug).setOnClickListener { dumpLater() }
     }
 
     override fun onResume() {
         super.onResume()
-        setStatus(if (VoiceFlowService.instance == null)
-            "⚠️ Accessibility service is OFF. Tap 'Enable accessibility service' → VoiceFlow → On."
-        else "✅ Accessibility service is running.")
+        val svcRunning = VoiceFlowService.instance != null
+        tvStatus.text = if (svcRunning)
+            "✅ Accessibility service is running."
+        else
+            "⚠️ Accessibility service is OFF — tap ⚙ to enable."
+        // Colour the dot
+        val dot = findViewById<View>(R.id.tvStatusDot)
+        dot.background = if (svcRunning)
+            resources.getDrawable(R.drawable.bg_dot_green, theme)
+        else
+            resources.getDrawable(R.drawable.bg_dot_red, theme)
     }
 
     override fun onDestroy() {
         scope.cancel(); super.onDestroy()
     }
 
-    private fun setStatus(s: String) { status.text = s }
-
+    // ---------------------------------------------------------------- cloud --
     private fun cloud(): CloudClient {
-        prefs.edit().putString("url", urlField.text.toString().trim())
-            .putString("key", keyField.text.toString().trim()).apply()
-        return CloudClient(urlField.text.toString(), keyField.text.toString())
+        val url = prefs.getString("url", "").orEmpty().trim()
+        val key = prefs.getString("key", "").orEmpty().trim()
+        if (url.isBlank()) {
+            Toast.makeText(this, "Set the server URL in Settings first", Toast.LENGTH_LONG).show()
+            startActivity(Intent(this, SettingsActivity::class.java))
+            throw IllegalStateException("No server URL configured")
+        }
+        return CloudClient(url, key)
     }
 
     private fun service(): VoiceFlowService? = VoiceFlowService.instance.also {
-        if (it == null) Toast.makeText(this, "Enable the VoiceFlow accessibility service first",
-            Toast.LENGTH_LONG).show()
-    }
-
-    private fun testConnection() = scope.launch {
-        setStatus("Connecting…")
-        setStatus(try { "✅ ${cloud().health()}" } catch (e: Exception) { "⚠️ ${e.message}" })
+        if (it == null) Toast.makeText(this,
+            "Enable the VoiceFlow accessibility service first", Toast.LENGTH_LONG).show()
     }
 
     // ---------------------------------------------------------------- voice --
@@ -106,7 +105,8 @@ class MainActivity : Activity() {
             @Suppress("DEPRECATION")
             startActivityForResult(i, REQ_SPEECH)
         } catch (e: Exception) {
-            Toast.makeText(this, "No speech recogniser installed; type the command", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "No speech recogniser installed; type the command",
+                Toast.LENGTH_LONG).show()
         }
     }
 
@@ -114,35 +114,44 @@ class MainActivity : Activity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode != REQ_SPEECH || resultCode != RESULT_OK) return
-        val heard = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull() ?: return
-        cmdField.setText(heard)
+        val heard = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            ?.firstOrNull() ?: return
+        etCommand.setText(heard)
         pendingAfterSpeech?.invoke(heard)
         pendingAfterSpeech = null
     }
 
     // ---------------------------------------------------------------- teach --
     private fun teach(command: String) {
-        if (command.isBlank()) { setStatus("Say or type the command first."); return }
+        if (command.isBlank()) {
+            Toast.makeText(this, "Say or type the command first.", Toast.LENGTH_SHORT).show()
+            return
+        }
         val svc = service() ?: return
-        svc.startTeaching(command.trim(), cloud())
-        setStatus("Teaching \"$command\". Open the app and do the task; tap Done on the floating bar.")
-        startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        val client = try { cloud() } catch (e: Exception) { return }
+        svc.startTeaching(command.trim(), client)
+        tvStatus.text = "Teaching \"$command\" — open the target app and perform the task, then tap Done on the bar."
+        startActivity(Intent(Intent.ACTION_MAIN)
+            .addCategory(Intent.CATEGORY_HOME)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
     // --------------------------------------------------------------- replay --
     private fun replay(command: String, flowId: String? = null, answers: Map<String, Any?> = emptyMap()) {
-        if (command.isBlank()) { setStatus("Say or type the command first."); return }
+        if (command.isBlank()) {
+            Toast.makeText(this, "Say or type the command first.", Toast.LENGTH_SHORT).show()
+            return
+        }
         val svc = service() ?: return
-        val client = cloud()
+        val client = try { cloud() } catch (e: Exception) { return }
         scope.launch {
-            setStatus("Thinking…")
+            tvStatus.text = "Thinking…"
             val r = try {
                 client.replay(ReplayRequest(command.trim(), svc.currentPackage, flowId, answers))
             } catch (e: Exception) {
-                setStatus("⚠️ Cloud error: ${e.message}"); return@launch
+                tvStatus.text = "⚠️ Cloud error: ${e.message}"; return@launch
             }
-            setStatus(r.message)
+            tvStatus.text = r.message
             when {
                 r.status == "PLAN" -> svc.startReplay(r, client)
                 r.status == "ASK_USER" && r.options.isNotEmpty() ->
@@ -168,11 +177,11 @@ class MainActivity : Activity() {
 
     private fun dumpLater() {
         val svc = service() ?: return
-        setStatus("Switch to the app now — dumping its UI tree to logcat (tag VoiceFlow-Tree) in 5 s.")
+        tvStatus.text = "Switch to the app now — dumping its UI tree to logcat in 5 s."
         scope.launch {
-            delay(5000)
+            kotlinx.coroutines.delay(5000)
             val tree = svc.dumpScreen()
-            setStatus("Dumped ${tree.lines().size} lines to logcat.")
+            tvStatus.text = "Dumped ${tree.lines().size} lines to logcat (tag VoiceFlow-Tree)."
         }
         moveTaskToBack(true)
     }

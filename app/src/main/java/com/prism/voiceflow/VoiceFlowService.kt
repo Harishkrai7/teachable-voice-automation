@@ -172,33 +172,53 @@ class VoiceFlowService : AccessibilityService() {
     }
 }
 
-/** Small floating bar drawn over other apps (no extra permission for accessibility services). */
+/** Small floating bar drawn over other apps. Supports drag-to-move. */
 class Overlay(private val svc: AccessibilityService) {
     private val wm = svc.getSystemService(WindowManager::class.java)
     private val handler = Handler(Looper.getMainLooper())
     private var view: LinearLayout? = null
     private lateinit var label: TextView
     private lateinit var button: Button
+    private lateinit var params: WindowManager.LayoutParams
 
+    // Drag state
+    private var dragInitialX = 0
+    private var dragInitialY = 0
+    private var dragTouchX = 0f
+    private var dragTouchY = 0f
+
+    @android.annotation.SuppressLint("ClickableViewAccessibility")
     private fun ensure() {
         if (view != null) return
         val dp = svc.resources.displayMetrics.density
         label = TextView(svc).apply {
-            setTextColor(Color.WHITE); textSize = 14f; maxWidth = (260 * dp).toInt()
+            setTextColor(Color.WHITE); textSize = 14f; maxWidth = (240 * dp).toInt()
         }
         button = Button(svc).apply { textSize = 13f }
+
+        // Drag handle (≡ icon at the left)
+        val dragHandle = TextView(svc).apply {
+            text = "⠿"
+            setTextColor(Color.argb(160, 200, 200, 255))
+            textSize = 18f
+            setPadding((4 * dp).toInt(), 0, (8 * dp).toInt(), 0)
+        }
+
         val bar = LinearLayout(svc).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding((14 * dp).toInt(), (6 * dp).toInt(), (6 * dp).toInt(), (6 * dp).toInt())
+            setPadding((10 * dp).toInt(), (6 * dp).toInt(), (6 * dp).toInt(), (6 * dp).toInt())
             background = GradientDrawable().apply {
-                setColor(Color.argb(230, 20, 20, 28)); cornerRadius = 18 * dp
+                setColor(Color.argb(235, 18, 18, 30)); cornerRadius = 18 * dp
             }
+            addView(dragHandle)
             addView(label)
             addView(button)
         }
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
+
+        params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
@@ -208,6 +228,27 @@ class Overlay(private val svc: AccessibilityService) {
             gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
             y = (140 * dp).toInt()
         }
+
+        // Touch listener: drag the overlay by tracking raw touch deltas
+        bar.setOnTouchListener { _, event ->
+            when (event.action) {
+                android.view.MotionEvent.ACTION_DOWN -> {
+                    dragInitialX = params.x
+                    dragInitialY = params.y
+                    dragTouchX = event.rawX
+                    dragTouchY = event.rawY
+                    true
+                }
+                android.view.MotionEvent.ACTION_MOVE -> {
+                    params.x = dragInitialX + (event.rawX - dragTouchX).toInt()
+                    params.y = dragInitialY - (event.rawY - dragTouchY).toInt()
+                    view?.let { runCatching { wm.updateViewLayout(it, params) } }
+                    true
+                }
+                else -> false
+            }
+        }
+
         wm.addView(bar, params)
         view = bar
     }
@@ -233,3 +274,4 @@ class Overlay(private val svc: AccessibilityService) {
         }
     }
 }
+
