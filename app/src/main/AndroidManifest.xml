@@ -34,13 +34,6 @@
 
         </activity>
 
-        <!-- Settings screen: credentials isolated from main UI -->
-        <activity
-            android:name=".SettingsActivity"
-            android:exported="false"
-            android:windowSoftInputMode="adjustResize"
-            android:label="Settings"/>
-
         <service
             android:name=".VoiceFlowService"
             android:exported="true"

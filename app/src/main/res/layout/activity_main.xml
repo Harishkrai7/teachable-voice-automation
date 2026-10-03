@@ -22,42 +22,24 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
+                android:orientation="vertical"
                 android:layout_marginBottom="24dp">
 
-                <LinearLayout
-                    android:layout_width="0dp"
+                <TextView
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
+                    android:text="VoiceFlow"
+                    android:textColor="#FFFFFF"
+                    android:textSize="28sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.02"/>
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="VoiceFlow"
-                        android:textColor="#FFFFFF"
-                        android:textSize="28sp"
-                        android:textStyle="bold"
-                        android:letterSpacing="0.02"/>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Teachable Voice Automation"
-                        android:textColor="#8888AA"
-                        android:textSize="13sp"/>
-                </LinearLayout>
-
-                <!-- Settings icon button -->
-                <ImageButton
-                    android:id="@+id/btnSettings"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
-                    android:src="@android:drawable/ic_menu_preferences"
-                    android:background="@drawable/bg_icon_btn"
-                    android:contentDescription="Settings"
-                    android:tint="#A0A0C8"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Teachable Voice Automation"
+                    android:textColor="#8888AA"
+                    android:textSize="13sp"/>
             </LinearLayout>
 
             <!-- ── Status card ── -->

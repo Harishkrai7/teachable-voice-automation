@@ -9,7 +9,6 @@ import android.speech.RecognizerIntent
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
-import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
 import kotlinx.coroutines.MainScope
@@ -19,7 +18,6 @@ import kotlinx.coroutines.launch
 class MainActivity : Activity() {
 
     private val scope = MainScope()
-    private val prefs by lazy { getSharedPreferences("voiceflow", MODE_PRIVATE) }
 
     private lateinit var etCommand: EditText
     private lateinit var tvStatus: TextView
@@ -31,11 +29,6 @@ class MainActivity : Activity() {
 
         etCommand   = findViewById(R.id.etCommand)
         tvStatus    = findViewById(R.id.tvStatus)
-
-        // Settings button → opens SettingsActivity
-        findViewById<ImageButton>(R.id.btnSettings).setOnClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
-        }
 
         // Accessibility shortcut button
         findViewById<Button>(R.id.btnEnableA11y).setOnClickListener {
@@ -79,14 +72,7 @@ class MainActivity : Activity() {
 
     // ---------------------------------------------------------------- cloud --
     private fun cloud(): CloudClient {
-        val url = prefs.getString("url", "").orEmpty().trim()
-        val key = prefs.getString("key", "").orEmpty().trim()
-        if (url.isBlank()) {
-            Toast.makeText(this, "Set the server URL in Settings first", Toast.LENGTH_LONG).show()
-            startActivity(Intent(this, SettingsActivity::class.java))
-            throw IllegalStateException("No server URL configured")
-        }
-        return CloudClient(url, key)
+        return CloudClient(BuildConfig.BASE_URL, null)
     }
 
     private fun service(): VoiceFlowService? = VoiceFlowService.instance.also {
