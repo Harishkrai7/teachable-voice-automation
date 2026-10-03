@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 
 from .schemas import Extraction, Flow, Option
 from .text import jaccard, norm, similar, tokens
+from .intents import package_to_display
 
 SIMILARITY_THRESHOLD = 0.5  # for custom (non-controlled) intents matched on wording alone
 TIE_MARGIN = 0.15
@@ -52,15 +53,21 @@ def match(ex: Extraction, utterance: str, current_app: str | None, flows: list[F
 
     wanted_app = ex.app or None
     if wanted_app:
-        on_app = [f for f in candidates if similar(f.app, wanted_app)]
+        # Normalize stored flow.app in case it was stored as a package name
+        # (e.g. flows saved before the normalization fix still have "com.application.zomato")
+        on_app = [f for f in candidates if similar(
+            package_to_display(f.app) or f.app, wanted_app
+        ) if f.app]
         if not on_app:
-            known = sorted({f.app or "?" for f in candidates})
+            known = sorted({package_to_display(f.app) or f.app or "?" for f in candidates})
             return MatchResult(
                 reason=f"I know how to do this on {', '.join(known)} but haven't been taught on {wanted_app}."
             )
         candidates = on_app
     elif current_app:
-        on_app = [f for f in candidates if similar(f.app, current_app)]
+        on_app = [f for f in candidates if f.app and similar(
+            package_to_display(f.app) or f.app, current_app
+        )]
         candidates = on_app or candidates
 
     if len(candidates) == 1:

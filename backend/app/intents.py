@@ -24,6 +24,33 @@ SHOP_APPS = {"amazon", "flipkart", "myntra", "meesho", "blinkit", "zepto", "bigb
 KNOWN_APPS = FOOD_APPS | SHOP_APPS
 APP_DISPLAY = {a: a.capitalize() for a in KNOWN_APPS} | {"bigbasket": "BigBasket", "jiomart": "JioMart"}
 
+# Maps keywords found inside Android package names -> display names.
+# e.g. "com.application.zomato" contains "zomato" -> "Zomato"
+PACKAGE_MAP: dict[str, str] = {
+    "zomato": "Zomato", "swiggy": "Swiggy", "eatsure": "EatSure",
+    "magicpin": "Magicpin", "amazon": "Amazon", "flipkart": "Flipkart",
+    "myntra": "Myntra", "meesho": "Meesho", "blinkit": "Blinkit",
+    "zepto": "Zepto", "bigbasket": "BigBasket", "jiomart": "JioMart",
+    "nykaa": "Nykaa",
+}
+
+
+def package_to_display(pkg: str) -> str | None:
+    """Convert an Android package name to a display name.
+
+    Examples::
+        package_to_display('com.application.zomato')  -> 'Zomato'
+        package_to_display('in.swiggy.android')       -> 'Swiggy'
+        package_to_display('com.amazon.mShop.android') -> 'Amazon'
+        package_to_display('Zomato')                   -> None  (already a display name)
+    """
+    low = pkg.lower()
+    # Dot-separated package name: search each segment
+    for keyword, display in PACKAGE_MAP.items():
+        if keyword in low:
+            return display
+    return None
+
 NUMBER_WORDS = {
     "a": 1, "an": 1, "one": 1, "single": 1, "two": 2, "couple of": 2, "a couple of": 2, "three": 3,
     "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10, "a dozen": 12,

@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import generalizer, matcher, recovery, safety, session_logger
-from .intents import Extractor, build_extractor
+from .intents import Extractor, build_extractor, package_to_display
 from .schemas import (
     CONTRACT_VERSION, Flow, RecoverRequest, RecoverResponse, ReplayRequest, ReplayResponse,
     ReplayStatus, StepResultRequest, TeachRequest, TeachResponse,
@@ -91,8 +91,13 @@ def teach(req: TeachRequest, store: JsonFlowStore = Depends(get_store), ex: Extr
     if intent == "unknown_intent":
         intent = "custom_" + "_".join(sorted(tokens(req.utterance), key=req.utterance.lower().find)[:3])
 
+    # Normalize raw Android package name (e.g. "com.application.zomato") to display name
+    # so that the stored flow.app always matches what the utterance extractor produces.
+    raw_app = req.app or extraction.app
+    app_name = (raw_app and package_to_display(raw_app)) or extraction.app or raw_app
+
     flow = store.save_new(Flow(
-        flowId="pending", intent=intent, app=req.app or extraction.app,
+        flowId="pending", intent=intent, app=app_name,
         utterances=[req.utterance], slots=slots, steps=steps,
     ))
     store.log("teach", requestId=rid, status="LEARNED", flowId=flow.flowId, intent=intent,
