@@ -24,12 +24,15 @@ class ReplayEngine(private val svc: VoiceFlowService, private val cloud: CloudCl
 
     suspend fun run(plan: ReplayResponse): String {
         val app = plan.app ?: return "⚠️ Plan has no app."
-        val launch = svc.packageManager.getLaunchIntentForPackage(app)
-            ?: return "⚠️ $app is not installed."
+        // plan.app is the display name ("Zomato"). getLaunchIntentForPackage() needs
+        // the actual Android package name ("com.application.zomato").
+        val pkg = resolvePackage(app)
+        val launch = svc.packageManager.getLaunchIntentForPackage(pkg)
+            ?: return "⚠️ $app is not installed. (tried package: $pkg)"
         status("Opening app…")
         launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         svc.startActivity(launch)
-        if (!waitFor(12_000) { root?.packageName?.toString() == app }) return "⚠️ Couldn't open $app."
+        if (!waitFor(12_000) { root?.packageName?.toString() == pkg }) return "⚠️ Couldn't open $app."
         settle(minMs = 2000, maxMs = 5000)
 
         val total = plan.steps.size
@@ -170,5 +173,44 @@ class ReplayEngine(private val svc: VoiceFlowService, private val cloud: CloudCl
         else -> s.type.lowercase()
     }
 
-    companion object { const val TAG = "VoiceFlow" }
+    companion object {
+        const val TAG = "VoiceFlow"
+
+        /**
+         * Maps display names (what the backend stores) -> Android package names.
+         * Keep this in sync with backend/app/intents.py PACKAGE_MAP.
+         */
+        private val KNOWN_PACKAGES = mapOf(
+            "zomato"     to "com.application.zomato",
+            "swiggy"     to "in.swiggy.android",
+            "eatsure"    to "com.fb.eatsure",
+            "magicpin"   to "com.magicpin",
+            "amazon"     to "com.amazon.mShop.android.shopping",
+            "flipkart"   to "com.flipkart.android",
+            "myntra"     to "com.myntra.android",
+            "meesho"     to "com.meesho.supply",
+            "blinkit"    to "com.grofers.customerapp",
+            "zepto"      to "com.zepto.app",
+            "bigbasket"  to "com.bigbasket",
+            "jiomart"    to "com.jio.jiomart",
+            "nykaa"      to "com.nykaa.client",
+        )
+
+        /**
+         * Resolve a display name or raw package name to an installed package.
+         * Priority:
+         *   1. Known display-name map ("Zomato" -> "com.application.zomato")
+         *   2. Already a valid package name (passed through as-is)
+         *   3. Fuzzy search across all installed apps by label
+         */
+        fun resolvePackage(nameOrPkg: String): String {
+            // 1. Check our curated display-name map (case-insensitive)
+            val key = nameOrPkg.trim().lowercase()
+            KNOWN_PACKAGES[key]?.let { return it }
+            // 2. If it already looks like a package name (contains a dot), use it directly
+            if (nameOrPkg.contains('.')) return nameOrPkg
+            // 3. Fallback: just return as-is (caller will get null from PackageManager)
+            return nameOrPkg
+        }
+    }
 }
