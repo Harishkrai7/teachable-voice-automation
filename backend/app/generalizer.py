@@ -17,6 +17,26 @@ from .text import norm, similar
 TEXT_ENTRY = {ActionType.TYPE, ActionType.SEARCH}
 SLOT_RE = re.compile(r"\{\{(\w+)\}\}")
 
+# Patterns for ephemeral cart-state text that changes depending on how many items were
+# in the cart at teaching time. These MUST be dropped or replay fails on a fresh cart.
+# e.g. "2 items added", "1 item added", "item added to cart"
+_CART_STATE_RE = re.compile(
+    r"^\d+\s+items?\s+(added|in\s+cart)|items?\s+added$",
+    re.I,
+)
+
+
+def _is_cart_state_step(a: ObservedAction) -> bool:
+    """Return True if this click records a cart-state bubble (e.g. '2 items added').
+
+    These are ephemeral: the text depends on cart history at teach-time and will
+    never match during a fresh replay. Drop them so the flow ends cleanly at ADD.
+    """
+    if a.action != ActionType.CLICK:
+        return False
+    text = (a.target.text or "") if a.target else ""
+    return bool(_CART_STATE_RE.search(text.strip()))
+
 
 def _identity(t: Target | None) -> tuple:
     if t is None:
@@ -29,6 +49,10 @@ def filter_noise(actions: list[ObservedAction]) -> tuple[list[ObservedAction], i
     kept: list[ObservedAction] = []
     for a in actions:
         if a.action == ActionType.WAIT:
+            continue
+        # Cart-state bubbles ("2 items added") depend on teach-time cart history and
+        # will never match during a fresh replay. Always drop them.
+        if _is_cart_state_step(a):
             continue
         prev = kept[-1] if kept else None
         if prev is not None:

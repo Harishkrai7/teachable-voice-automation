@@ -84,6 +84,22 @@ object TargetResolver {
         var b = 0.0
         if (t.resourceId != null && n.viewIdResourceName == t.resourceId) b += 0.05
         if (t.className != null && n.className?.toString() == t.className) b += 0.02
+        // If the step recorded a parentText (e.g. the dish name in the card that contains the
+        // rating badge), give a bonus to nodes whose parent hierarchy contains that text.
+        // This breaks ties when multiple nodes share the same label (e.g. "Highly reordered").
+        val pt = t.parentText
+        if (pt != null) {
+            var p: AccessibilityNodeInfo? = n.parent
+            var depth = 0
+            while (p != null && depth < 4) {
+                val pSim = maxOf(
+                    TextUtil.similarity(p.text, pt),
+                    TextUtil.similarity(p.contentDescription, pt)
+                )
+                if (pSim >= 0.6) { b += 0.15 * (1.0 - depth * 0.03); break }
+                p = p.parent; depth++
+            }
+        }
         return b
     }
 }
