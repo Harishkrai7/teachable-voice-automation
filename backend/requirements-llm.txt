@@ -1,0 +1,2 @@
+# Optional: EXTRACTOR=gemini
+google-genai>=1.0

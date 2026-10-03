@@ -1,0 +1,16 @@
+{
+  "mode": "TEACH",
+  "contractVersion": "1.0",
+  "utterance": "Add a USB-C cable to my cart on Amazon",
+  "app": "Amazon",
+  "actions": [
+    {"action": "CLICK", "target": {"resourceId": "in.amazon.mShop.android.shopping:id/chrome_search_hint_view", "text": "Search Amazon.in", "clickable": true, "screen": "Home"}},
+    {"action": "SEARCH", "value": "USB-C cable", "target": {"resourceId": "in.amazon.mShop.android.shopping:id/rs_search_src_text", "className": "android.widget.EditText", "screen": "Search"}},
+    {"action": "SCROLL", "target": {"className": "androidx.recyclerview.widget.RecyclerView", "screen": "Results"}},
+    {"action": "SCROLL", "target": {"className": "androidx.recyclerview.widget.RecyclerView", "screen": "Results"}},
+    {"action": "SELECT", "target": {"text": "Amazon Basics USB-C cable, 1m", "clickable": true, "screen": "Results"}},
+    {"action": "SET_QUANTITY", "value": "1", "target": {"text": "Quantity: 1", "resourceId": "mobileQuantityDropDown", "screen": "Product"}},
+    {"action": "ADD_TO_CART", "target": {"text": "Add to Cart", "resourceId": "add-to-cart-button", "clickable": true, "screen": "Product"}},
+    {"action": "OPEN_CART", "target": {"contentDescription": "Cart", "resourceId": "in.amazon.mShop.android.shopping:id/cart_count", "clickable": true, "screen": "Product"}}
+  ]
+}
